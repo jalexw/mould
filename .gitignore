@@ -1,0 +1,17 @@
+node_modules/
+
+template-sources.json
+templates/
+
+tmp/
+
+dist/
+
+out/
+output/
+
+.env
+.env.local
+.env.development
+.env.test
+.env.production

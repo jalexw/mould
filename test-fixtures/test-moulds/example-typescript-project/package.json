@@ -1,0 +1,12 @@
+{
+  "name": "@jalexw/typescript-project",
+  "version": "0.0.1",
+  "devDependencies": {
+    "typescript": "5.9.2",
+    "bun-types": "1.2.21"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "packageManager": "bun@1.2.21"
+}
