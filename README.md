@@ -2,13 +2,13 @@
 
 ## Install and build `mould` from source
 
-Download and build `mould`:
+Download and build `mould` using `git` and `bun`:
 ```bash
 # Installs @jalexw/mould to default location: `$HOME/mould`
 cd ~ && git clone https://github.com/jalexw/mould.git && cd mould && bun install && bun run build
 ```
 
-There should now be an executable binary named `mould` in the `./dist/bin` folder. Add it to your Shell/Terminal's PATH so you can use the `mould` command from anywhere. Edit your `.zshrc`, `.bashrc`, or equivalent:
+There should now be an executable binary named `mould` in the `./dist/bin` folder. Add it to your Shell/Terminal's PATH so you can use the `mould` command from anywhere. Edit your `.zshrc` or `.bashrc` (or equivalent) to include the following line at the end:
 ```bash
 export PATH=$HOME/mould/dist/bin:$PATH
 ```
