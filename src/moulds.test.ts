@@ -1,7 +1,12 @@
+// @ts-ignore
 import { describe, expect, test } from "bun:test";
+
+// mould CLI to invoke within same process on mock inputs
+import mould from "$/mould";
+
+// OS Utils
 import { existsSync, mkdirSync, readdirSync } from "fs";
 import { join, normalize } from "path";
-import mould from "$/mould";
 
 const projectRootDir: string = normalize(join(__dirname, ".."));
 const testRunId: string = crypto.randomUUID();

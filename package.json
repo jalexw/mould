@@ -1,7 +1,7 @@
 {
   "name": "@jalexw/mould",
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "dependencies": {
     "commander": "14.0.0",
     "zod": "3.23.8"
@@ -17,6 +17,9 @@
     "build:typescript": "tsc --project tsconfig.json && tsc-alias --project tsconfig.json",
     "build:executable": "mkdir -p ./dist/bin && NODE_ENV=production bun build ./src/index.ts --compile --outfile ./dist/bin/mould",
     "build": "bun run build:typescript && bun run build:executable",
+    "postbuild": "bun run cleanup",
+    "cleanup:compiled_tests_in_dist_directory": "find ./dist -type f \\( -name \"*.test.js\" -o -name \"*.test.js.map\" -o -name \"*.test.d.ts\" \\) -delete",
+    "cleanup": "bun run cleanup:compiled_tests_in_dist_directory",
     "execute": "NODE_ENV=production bun run dist/index.js",
     "test": "bun test"
   }
