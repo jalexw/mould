@@ -85,32 +85,54 @@ const sampleInputs: Record<string, Record<string, string>> = {
   },
 };
 
-// Checks for a given mould
-const checks: Record<string, (output_path: string) => Promise<boolean>> = {
-  "example-typescript-project": async (
-    output_path: string,
-  ): Promise<boolean> => {
-    try {
-      const data: string = readFileSync(join(output_path, "package.json"), {
-        encoding: "utf-8",
-      });
-      const parsed: unknown = JSON.parse(data);
-      if (
-        typeof parsed === "object" &&
-        !!parsed &&
-        "name" in parsed &&
-        parsed["name"] === "@jalexw/example-typescript-project"
-      ) {
-        return true;
-      } else {
-        console.error(
-          "Expected package.json name to be @jalexw/example-typescript-project",
-        );
-      }
-    } catch (e: unknown) {}
+async function checkDidExampleTypeScriptProjectVariableSubstituteSuccess(
+  output_path: string,
+): Promise<boolean> {
+  try {
+    const data: string = readFileSync(join(output_path, "package.json"), {
+      encoding: "utf-8",
+    });
+    const parsed: unknown = JSON.parse(data);
+    if (
+      typeof parsed === "object" &&
+      !!parsed &&
+      "name" in parsed &&
+      parsed["name"] === "@jalexw/example-typescript-project"
+    ) {
+      return true;
+    } else {
+      console.error(
+        "Expected package.json name to be @jalexw/example-typescript-project",
+      );
+    }
+  } catch (e: unknown) {}
 
-    return false;
-  },
+  return false;
+}
+
+function helloWorldMouldValidator(output_path: string): boolean {
+  const fileTxt = join(output_path, "index.js");
+  if (existsSync(fileTxt)) {
+    const file: string = readFileSync(fileTxt, { encoding: "utf-8" });
+    if (file.includes("Hello world!")) {
+      return true;
+    }
+  } else {
+    console.warn("No file found at ", fileTxt);
+  }
+
+  return false;
+}
+
+// Checks for a given mould
+const checks: Record<
+  string,
+  | ((output_path: string) => boolean)
+  | ((output_path: string) => Promise<boolean>)
+> = {
+  "example-typescript-project":
+    checkDidExampleTypeScriptProjectVariableSubstituteSuccess,
+  "hello-world-mould": helloWorldMouldValidator,
 };
 
 describe("Test Moulds", () => {
@@ -144,8 +166,9 @@ describe("Test Moulds", () => {
       expect(existsSync(output_path)).toBeTruthy();
 
       if (checks[testTemplateName]) {
-        const checkFn: (output_path: string) => Promise<boolean> =
-          checks[testTemplateName];
+        const checkFn:
+          | ((output_path: string) => Promise<boolean>)
+          | ((output_path: string) => boolean) = checks[testTemplateName];
         const isValid: boolean = await checkFn(output_path);
         expect(isValid).toBeTrue();
       }
