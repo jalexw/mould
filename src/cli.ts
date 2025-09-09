@@ -170,9 +170,10 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
             }
           });
           if (exitFromInvalidInputs) {
-            throw new TypeError(
+            console.error(
               "Invalid inputs based on .mouldconfig.json for template!",
             );
+            process.exit(1);
           }
         }
 
