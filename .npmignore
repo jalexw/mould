@@ -1,0 +1,7 @@
+dist/bin/
+test-fixtures/
+src/
+templates/
+out/
+output/
+template-sources.json
