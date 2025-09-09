@@ -6,9 +6,14 @@ import { join } from "path";
 import loadTemplateSourceDirectoriesListedInConfig from "@/lib/loadTemplateSourceDirectoriesListedInConfig";
 import gatherAvailableTemplates from "@/lib/gatherAvailableTemplates";
 import type { ITemplate } from "@/types/ITemplate";
-import searchForTemplate from "./lib/searchForTemplate";
-import { ITemplateSourceDirectory } from "./types/ITemplateSourceDirectory";
+import searchForTemplate from "@/lib/searchForTemplate";
+import { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import { existsSync, lstatSync } from "fs";
+import {
+  ITemplateConfig,
+  MouldInputItemDefinition,
+  TemplateSubstitutionsList,
+} from "@/types/ITemplateConfig";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -58,6 +63,10 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       .option(
         "--ts, --template-sources <SOURCES>",
         "comma-separated list of paths to folders to search for templates. overrides ~/mould/template-sources.json config.",
+      )
+      .option(
+        "-i, --input <KEYVALUEPAIRS...>",
+        "space-separated value pairs input for mould (e.g. -i input_name_a=a input_name_b=foo)",
       );
 
     useCommand.action(
@@ -116,7 +125,58 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
           process.exit(1);
         }
 
-        await template.export({ output_path });
+        let config: ITemplateConfig | undefined = undefined;
+        if (template.hasConfig) {
+          config = await template.loadConfig();
+        }
+
+        // Parsed input options from console arg
+        const input_values: Record<string, string> = {};
+
+        if (
+          typeof opts === "object" &&
+          !!opts &&
+          "input" in opts &&
+          Array.isArray(opts.input) &&
+          opts.input.every((i): i is string => typeof i === "string" && !!i)
+        ) {
+          opts.input.forEach((i: string) => {
+            const splitByEquals: string[] = i.split("=");
+            if (
+              splitByEquals.length !== 2 ||
+              !splitByEquals[0] ||
+              !splitByEquals[1]
+            ) {
+              throw new TypeError(
+                "Failed to split argument to --input option into two parts by '=' symbol!",
+              );
+            }
+            const key: string = splitByEquals[0];
+            const value: string = splitByEquals[1];
+            input_values[key] = value;
+          });
+        }
+
+        if (config && config.inputs) {
+          const inputs: readonly MouldInputItemDefinition[] = [
+            ...config.inputs,
+          ];
+
+          let exitFromInvalidInputs: boolean = false;
+          inputs.forEach((input) => {
+            if (!(input.id in input_values)) {
+              console.error(`Missing input '${input.id}' for mould template!`);
+              exitFromInvalidInputs = true;
+            }
+          });
+          if (exitFromInvalidInputs) {
+            throw new TypeError(
+              "Invalid inputs based on .mouldconfig.json for template!",
+            );
+          }
+        }
+
+        await template.export({ output_path, input_values });
       },
     );
   }

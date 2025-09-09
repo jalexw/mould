@@ -2,7 +2,7 @@
   "name": "@jalexw/mould",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "dependencies": {
     "commander": "14.0.0",
     "zod": "3.23.8"
@@ -20,7 +20,8 @@
     "build": "bun run build:typescript && bun run build:executable",
     "postbuild": "bun run cleanup",
     "cleanup:compiled_tests_in_dist_directory": "find ./dist -type f \\( -name \"*.test.js\" -o -name \"*.test.js.map\" -o -name \"*.test.d.ts\" \\) -delete",
-    "cleanup": "bun run cleanup:compiled_tests_in_dist_directory",
+    "cleanup:delete_tests_dir": "rm -rf ./dist/tests",
+    "cleanup": "bun run cleanup:compiled_tests_in_dist_directory && bun run cleanup:delete_tests_dir",
     "execute": "NODE_ENV=production bun run dist/index.js",
     "test": "bun test && rm -rf ./tmp"
   },

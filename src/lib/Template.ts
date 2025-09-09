@@ -10,6 +10,7 @@ import gatherFilesInTemplate from "./gatherFilesInTemplate";
 import exportTemplate from "./exportTemplate";
 import { existsSync } from "fs";
 import TemplateConfig from "./TemplateConfig";
+import type { IExportTemplateOptions } from "@/types/IExportTemplateOptions";
 
 export class Template implements ITemplate {
   public readonly name: string;
@@ -25,11 +26,17 @@ export class Template implements ITemplate {
     return join(this.path, ".mouldconfig.json");
   }
 
-  protected get hasConfig(): boolean {
-    return existsSync(this.configPath);
+  public get hasConfig(): boolean {
+    const doesConfigFileExist: boolean = existsSync(this.configPath);
+    return doesConfigFileExist;
   }
 
   public async loadConfig(): Promise<ITemplateConfig> {
+    if (!(this.hasConfig satisfies boolean)) {
+      throw new Error(
+        `Configuration does not appear to exist for template: '${this.name}' from '${this.path}'`,
+      );
+    }
     const configPath: string = this.configPath;
     const configFileData = await readFile(configPath, { encoding: "utf-8" });
     const config: unknown = JSON.parse(configFileData);
@@ -71,9 +78,15 @@ export class Template implements ITemplate {
     return TemplateConfig.default;
   }
 
-  public async export({ output_path }: { output_path: string }): Promise<void> {
+  public async export({
+    output_path,
+    input_values,
+  }: IExportTemplateOptions): Promise<void> {
     if (this.debug) {
-      console.log(`Template<"${this.name}">.export()`);
+      console.log(
+        `Template<"${this.name}"> exporting to '${output_path}' with values: `,
+        input_values,
+      );
     }
 
     let config: ITemplateConfig;
@@ -84,7 +97,7 @@ export class Template implements ITemplate {
     }
 
     if (this.debug) {
-      console.log(`Template<"${this.name}"> exporting with config: `, config);
+      console.log(`Template<"${this.name}"> configuration: `, config);
     }
 
     const files: readonly (ITemplateFile | ITemplateDirectory)[] =
@@ -96,7 +109,7 @@ export class Template implements ITemplate {
       );
     }
 
-    await exportTemplate({ config, files, output_path });
+    await exportTemplate({ config, files, output_path, input_values });
 
     if (this.debug) {
       console.log(

@@ -1,3 +1,5 @@
+const DEBUG: boolean = true;
+
 // @ts-ignore
 import { describe, expect, test } from "bun:test";
 
@@ -5,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import mould from "$/mould";
 
 // OS Utils
-import { existsSync, mkdirSync, readdirSync } from "fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync } from "fs";
 import { join, normalize } from "path";
 
 const projectRootDir: string = normalize(join(__dirname, ".."));
@@ -40,7 +42,7 @@ function listTestMoulds(): readonly string[] {
   return readdirSync(mockTestMouldsPath);
 }
 
-async function runMouldCommand(
+export async function runMouldCommand(
   argv: readonly string[],
   debug: boolean = false,
 ): Promise<void> {
@@ -75,6 +77,42 @@ async function runMouldCommand(
   }
 }
 
+// A map of sample inputs for the given mould
+const sampleInputs: Record<string, Record<string, string>> = {
+  "example-typescript-project": {
+    project_name: "example-typescript-project",
+    org_scope: "jalexw",
+  },
+};
+
+// Checks for a given mould
+const checks: Record<string, (output_path: string) => Promise<boolean>> = {
+  "example-typescript-project": async (
+    output_path: string,
+  ): Promise<boolean> => {
+    try {
+      const data: string = readFileSync(join(output_path, "package.json"), {
+        encoding: "utf-8",
+      });
+      const parsed: unknown = JSON.parse(data);
+      if (
+        typeof parsed === "object" &&
+        !!parsed &&
+        "name" in parsed &&
+        parsed["name"] === "@jalexw/example-typescript-project"
+      ) {
+        return true;
+      } else {
+        console.error(
+          "Expected package.json name to be @jalexw/example-typescript-project",
+        );
+      }
+    } catch (e: unknown) {}
+
+    return false;
+  },
+};
+
 describe("Test Moulds", () => {
   const testMoulds = listTestMoulds();
 
@@ -84,15 +122,33 @@ describe("Test Moulds", () => {
       const output_path: string = join(thisRunTmpPath, testMould);
       expect(existsSync(output_path)).toBeFalsy();
 
-      await runMouldCommand([
+      const commandArgs: string[] = [
         "use",
         testTemplateName,
         output_path,
         "--template-sources",
         mockTestMouldsPath,
-      ]);
+      ];
+
+      // Pass pre-saved sample inputs if some are set
+      if (!!sampleInputs[testTemplateName]) {
+        commandArgs.push("--input");
+        const input: Record<string, string> = sampleInputs[testTemplateName];
+        for (const [key, value] of Object.entries(input)) {
+          commandArgs.push(`${key}=${value}`);
+        }
+      }
+
+      await runMouldCommand(commandArgs, DEBUG);
 
       expect(existsSync(output_path)).toBeTruthy();
+
+      if (checks[testTemplateName]) {
+        const checkFn: (output_path: string) => Promise<boolean> =
+          checks[testTemplateName];
+        const isValid: boolean = await checkFn(output_path);
+        expect(isValid).toBeTrue();
+      }
     });
   });
 });

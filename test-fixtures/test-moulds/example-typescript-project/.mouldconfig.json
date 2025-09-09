@@ -1,0 +1,18 @@
+{
+  "inputs": [
+    {
+      "id": "project_name",
+      "label": "Project Name",
+      "description": "Package name for 'name' field of new package.json file"
+    },
+    {
+      "id": "org_scope",
+      "label": "Org Scope",
+      "description": "Scope for 'name' field of new package.json file"
+    }
+  ],
+  "substitutions": [
+    ["XxX_ProjectName_XxX", "project_name"],
+    ["YyY_OrgScope_YyY", "org_scope"]
+  ]
+}

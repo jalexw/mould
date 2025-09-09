@@ -48,12 +48,26 @@ You should now be able to see a template named `my-new-template` listed with the
 mould list
 ```
 
-### Use a template
+### Use a simple template
 
+Use the simple `my-new-template` mould template you created above to generate a directory from it:
 ```bash
 # creates a folder named ./output with a file.txt within and "Example File Content"
 mould use my-new-template ./output
 ```
+
+### A more complicated template usage
+
+The following example covers the following:
+- Loading template from a one-off source directory using `--template-sources` flag. This overrides the `template-sources.json` configured.
+- Passing custom inputs `org_scope=jalexw` and `project_name=my_new_project_name` after the `--input` flag, allowing custom variable substitution as defined by the [`.mouldconfig.json`](./test-fixtures/test-moulds/example-typescript-project/.mouldconfig.json) configuration for the mould.
+
+```bash
+mould use example-typescript-project ./output \
+  --template-sources ./test-fixtures/test-moulds \
+  --input org_scope=jalexw project_name=my_new_project_name
+```
+
 
 ### Load configured list of paths to template source directories
 ```bash
