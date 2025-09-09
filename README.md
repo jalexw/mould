@@ -59,7 +59,7 @@ mould use my-new-template ./output
 ### A more complicated template usage
 
 The following example covers the following:
-- Loading template from a one-off source directory using `--template-sources` flag. This overrides the `template-sources.json` configured.
+- Loading template from a one-off source directory using `--template-sources` flag. This overrides the `template-sources.json` configured. In this example, we're trying to use a template named `example-typescript-project` (found in the [`./test-fixtures/test-moulds` templates directory](./test-fixtures/test-moulds)).
 - Passing custom inputs `org_scope=jalexw` and `project_name=my_new_project_name` after the `--input` flag, allowing custom variable substitution as defined by the [`.mouldconfig.json`](./test-fixtures/test-moulds/example-typescript-project/.mouldconfig.json) configuration for the mould.
 
 ```bash
