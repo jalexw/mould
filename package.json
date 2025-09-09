@@ -21,6 +21,6 @@
     "cleanup:compiled_tests_in_dist_directory": "find ./dist -type f \\( -name \"*.test.js\" -o -name \"*.test.js.map\" -o -name \"*.test.d.ts\" \\) -delete",
     "cleanup": "bun run cleanup:compiled_tests_in_dist_directory",
     "execute": "NODE_ENV=production bun run dist/index.js",
-    "test": "bun test"
+    "test": "bun test && rm -rf ./tmp"
   }
 }
