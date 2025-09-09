@@ -1,5 +1,13 @@
 # mould
 
+## About
+
+🧩🪄 Generate sample projects and insert code snippets from your configurable templates collection!
+
+After installing `mould`, you can create a `templates/` directory where every immediate subfolder represents a new template. Files are then copied from this folder (an operation configurable by a `.mouldconfig.json` file) to a destination directory after applying any transformations.
+
+For an example of what your own `templates/` folder may look like, [follow this link to see some example template moulds we use in test cases](./test-fixtures/test-moulds).
+
 ## Install and build `mould` from source
 
 Download and build `mould` using `git` and `bun`:
