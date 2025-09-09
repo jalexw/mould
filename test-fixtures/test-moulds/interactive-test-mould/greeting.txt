@@ -1,0 +1,7 @@
+Hello {{USER_NAME}}!
+
+Welcome to the interactive mould test. We heard that your favorite color is {{FAVORITE_COLOR}}.
+
+This file was generated using the interactive mould functionality.
+
+Have a great day!

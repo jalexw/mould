@@ -76,6 +76,11 @@ mould use example-typescript-project ./output \
   --input org_scope=jalexw project_name=my_new_project_name
 ```
 
+Or to be prompted for inputs:
+```bash
+mould use example-typescript-project ./output --interactive --template-sources ./test-fixtures/test-moulds
+```
+
 
 ### Load configured list of paths to template source directories
 ```bash

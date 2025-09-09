@@ -1,0 +1,22 @@
+{
+  "inputs": [
+    {
+      "id": "user_name",
+      "label": "User Name",
+      "description": "Your name to be included in the greeting",
+      "required": true,
+      "type": "text"
+    },
+    {
+      "id": "favorite_color",
+      "label": "Favorite Color",
+      "description": "Your favorite color",
+      "required": false,
+      "type": "text"
+    }
+  ],
+  "substitutions": [
+    ["{{USER_NAME}}", "user_name"],
+    ["{{FAVORITE_COLOR}}", "favorite_color"]
+  ]
+}

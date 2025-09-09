@@ -1,4 +1,4 @@
-const DEBUG: boolean = true;
+const DEBUG = false as const satisfies boolean;
 
 // @ts-ignore
 import { describe, expect, test } from "bun:test";
@@ -83,6 +83,10 @@ const sampleInputs: Record<string, Record<string, string>> = {
     project_name: "example-typescript-project",
     org_scope: "jalexw",
   },
+  "interactive-test-mould": {
+    user_name: "TestUser",
+    favorite_color: "blue",
+  },
 };
 
 async function checkDidExampleTypeScriptProjectVariableSubstituteSuccess(
@@ -124,6 +128,24 @@ function helloWorldMouldValidator(output_path: string): boolean {
   return false;
 }
 
+function interactiveTestMouldValidator(output_path: string): boolean {
+  const greetingFile = join(output_path, "greeting.txt");
+  if (existsSync(greetingFile)) {
+    const file: string = readFileSync(greetingFile, { encoding: "utf-8" });
+    // Check if substitutions were applied correctly
+    if (
+      file.includes("Hello TestUser!") &&
+      file.includes("favorite color is blue")
+    ) {
+      return true;
+    }
+  } else {
+    console.warn("No file found at ", greetingFile);
+  }
+
+  return false;
+}
+
 // Checks for a given mould
 const checks: Record<
   string,
@@ -133,6 +155,7 @@ const checks: Record<
   "example-typescript-project":
     checkDidExampleTypeScriptProjectVariableSubstituteSuccess,
   "hello-world-mould": helloWorldMouldValidator,
+  "interactive-test-mould": interactiveTestMouldValidator,
 };
 
 describe("Test Moulds", () => {

@@ -2,7 +2,7 @@
   "name": "@jalexw/mould",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "dependencies": {
     "commander": "14.0.0",
     "zod": "3.23.8"

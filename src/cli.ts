@@ -14,6 +14,7 @@ import {
   MouldInputItemDefinition,
   TemplateSubstitutionsList,
 } from "@/types/ITemplateConfig";
+import { createInterface } from "readline";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -42,6 +43,26 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
 
   private readonly templateSrcs: readonly TemplateSourceDirectory[];
 
+  private async promptForInput(
+    inputDef: MouldInputItemDefinition,
+  ): Promise<string> {
+    const rl = createInterface({
+      input: process.stdin,
+      output: process.stdout,
+    });
+
+    return new Promise((resolve) => {
+      const prompt = inputDef.description
+        ? `${inputDef.label} (${inputDef.description}): `
+        : `${inputDef.label}: `;
+
+      rl.question(prompt, (answer: string) => {
+        rl.close();
+        resolve(answer.trim());
+      });
+    });
+  }
+
   private addSetupMouldCliCommand(): void {
     this.program
       .command("setup")
@@ -67,6 +88,10 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       .option(
         "-i, --input <KEYVALUEPAIRS...>",
         "space-separated value pairs input for mould (e.g. -i input_name_a=a input_name_b=foo)",
+      )
+      .option(
+        "--interactive",
+        "interactively prompt for missing inputs instead of exiting with error",
       );
 
     useCommand.action(
@@ -162,18 +187,51 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
             ...config.inputs,
           ];
 
-          let exitFromInvalidInputs: boolean = false;
-          inputs.forEach((input) => {
-            if (!(input.id in input_values)) {
-              console.error(`Missing input '${input.id}' for mould template!`);
-              exitFromInvalidInputs = true;
+          // Check for interactive mode
+          const isInteractive =
+            typeof opts === "object" &&
+            !!opts &&
+            "interactive" in opts &&
+            opts.interactive === true;
+
+          // Find missing inputs
+          const missingInputs = inputs.filter(
+            (input) => !(input.id in input_values),
+          );
+
+          if (missingInputs.length > 0) {
+            if (isInteractive) {
+              console.log(
+                `📝 Gathering ${missingInputs.length} missing input(s) for template '${template_name}'...\n`,
+              );
+
+              for (const input of missingInputs) {
+                const value = await this.promptForInput(input);
+                if (!value && input.required) {
+                  console.error(
+                    `❌ Required input '${input.id}' cannot be empty!`,
+                  );
+                  process.exit(1);
+                }
+                input_values[input.id] = value;
+              }
+
+              console.log("✅ All inputs gathered!\n");
+            } else {
+              let exitFromInvalidInputs: boolean = false;
+              missingInputs.forEach((input) => {
+                console.error(
+                  `Missing input '${input.id}' for mould template!`,
+                );
+                exitFromInvalidInputs = true;
+              });
+              if (exitFromInvalidInputs) {
+                console.error(
+                  "Invalid inputs based on .mouldconfig.json for template! Use --interactive flag to be prompted for missing inputs.",
+                );
+                process.exit(1);
+              }
             }
-          });
-          if (exitFromInvalidInputs) {
-            console.error(
-              "Invalid inputs based on .mouldconfig.json for template!",
-            );
-            process.exit(1);
           }
         }
 
