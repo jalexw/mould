@@ -78,7 +78,9 @@ mould use example-typescript-project ./output \
 
 Or to be prompted for inputs:
 ```bash
-mould use example-typescript-project ./output --interactive --template-sources ./test-fixtures/test-moulds
+mould use example-typescript-project ./output \
+  --template-sources ./test-fixtures/test-moulds \
+  --interactive
 ```
 
 
