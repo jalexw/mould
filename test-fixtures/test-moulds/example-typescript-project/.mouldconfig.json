@@ -3,12 +3,16 @@
     {
       "id": "project_name",
       "label": "Project Name",
-      "description": "Package name for 'name' field of new package.json file"
+      "description": "Package name for 'name' field of new package.json file",
+      "required": true,
+      "type": "text"
     },
     {
       "id": "org_scope",
       "label": "Org Scope",
-      "description": "Scope for 'name' field of new package.json file"
+      "description": "Scope for 'name' field of new package.json file",
+      "required": true,
+      "type": "text"
     }
   ],
   "substitutions": [
