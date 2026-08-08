@@ -35,7 +35,9 @@
   "type": "module",
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
-  "bin": "dist/bin/mould",
+  "bin": {
+    "mould": "dist/bin/mould"
+  },
   "publishConfig": {
     "access": "public"
   }

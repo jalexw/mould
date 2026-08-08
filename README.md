@@ -8,6 +8,63 @@ After installing `mould`, you can create a `templates/` directory where every im
 
 For an example of what your own `templates/` folder may look like, [follow this link to see some example template moulds we use in test cases](./test-fixtures/test-moulds).
 
+## Run `mould` without installing (`bunx`/`npx`)
+
+`@jalexw/mould` publishes the compiled `mould` executable as the package's `bin`, so you can run it
+straight from the npm registry without cloning or installing anything:
+
+```bash
+bunx @jalexw/mould --help
+```
+
+The same works with `npx` if you'd rather not use `bun`:
+```bash
+npx @jalexw/mould --help
+```
+
+Every subcommand documented below works this way — swap the `mould` command for `bunx @jalexw/mould`:
+```bash
+# print the installed version
+bunx @jalexw/mould --version
+
+# list the templates available from your configured template sources
+bunx @jalexw/mould list
+
+# list the directories that are searched for templates
+bunx @jalexw/mould sources
+
+# run the initial configuration steps
+bunx @jalexw/mould setup
+
+# generate ./output from a template, passing inputs on the command line
+bunx @jalexw/mould use example-typescript-project ./output \
+  --template-sources ./test-fixtures/test-moulds \
+  --input org_scope=jalexw project_name=my_new_project_name
+```
+
+> Note: `bunx` caches packages between runs. Use `bunx --bun @jalexw/mould@latest --help` to force the
+> newest published version.
+
+> ⚠️ The published `bin` is a single self-contained binary compiled by CI on Linux x64, so it only runs
+> on Linux x64 machines. On macOS or Windows, [build from source](#install-and-build-mould-from-source)
+> until per-platform binaries are published.
+
+### Install `mould` globally from npm
+
+To get a persistent `mould` command on your PATH without building from source:
+```bash
+# with bun
+bun add --global @jalexw/mould
+
+# or with npm
+npm install --global @jalexw/mould
+```
+
+Then use the `mould` command directly:
+```bash
+mould --help
+```
+
 ## Install and build `mould` from source
 
 Download and build `mould` using `git` and `bun`:
