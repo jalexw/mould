@@ -155,9 +155,9 @@ mould sources
 
 The JSON Schema for `.mouldconfig.json` is generated on every build and published to GitHub Pages at [https://jalexw.github.io/mould/mouldconfig.json](https://jalexw.github.io/mould/mouldconfig.json).
 
-Reference it from your own config files for editor autocompletion and validation:
+Reference it from your own `.mouldconfig.json` files for editor autocompletion and validation:
 ```json
 {
-  "$schema": "https://jalexw.github.io/mould/mouldconfig.json"
+  "$schema": "https://jalexw.github.io/mould/openapi/mouldconfig.json"
 }
 ```

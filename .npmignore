@@ -6,6 +6,10 @@ templates/
 out/
 output/
 template-sources.json
+dist/github-pages/
+dist/build-openapi/
+dist/build-github-pages-site/
+github-pages-static/
 
 **.test.ts
 **.test.js

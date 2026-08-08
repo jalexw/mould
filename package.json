@@ -1,6 +1,6 @@
 {
   "name": "@jalexw/mould",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
   "repository": {
@@ -24,11 +24,12 @@
     "dev": "NODE_ENV=development bun run src/bin/mould.ts",
     "build:typescript": "tsc --project tsconfig.json && tsc-alias --project tsconfig.json",
     "build:mouldconfig-openapi": "bun run ./src/build-openapi/mouldconfig.ts",
+    "build:github-pages": "bun run ./src/build-github-pages-site/build-github-pages-site.ts",
     "build": "bun run build:typescript && bun run build:mouldconfig-openapi",
     "postbuild": "bun run cleanup",
     "cleanup:compiled_tests_in_dist_directory": "find ./dist -type f \\( -name \"*.test.js\" -o -name \"*.test.js.map\" -o -name \"*.test.d.ts\" \\) -delete",
     "cleanup:delete_test_directories": "find ./dist -type d -name '__test__' -prune -exec rm -rf {} +",
-    "cleanup:delete_dist_build_scripts": "rm -rf ./dist/build-openapi",
+    "cleanup:delete_dist_build_scripts": "rm -rf ./dist/build-openapi && rm -rf ./dist/build-github-pages-site",
     "cleanup": "bun run cleanup:compiled_tests_in_dist_directory && bun run cleanup:delete_test_directories && bun run cleanup:delete_dist_build_scripts",
     "execute": "NODE_ENV=production node dist/bin/mould.js",
     "test": "bun test && rm -rf ./tmp"
