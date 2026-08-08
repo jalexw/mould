@@ -31,7 +31,7 @@ jobs:
       - name: Pack up package with Bun
         run: bun pm pack --quiet --filename mould-package.tgz --gzip-level 9
       - name: Upload package artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: package-tarball
           path: mould-package.tgz
@@ -87,7 +87,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           registry-url: "https://registry.npmjs.org"
