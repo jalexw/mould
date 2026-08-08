@@ -24,3 +24,6 @@ template-sources.json
 .env.*
 
 tsconfig.json
+
+.claude/
+CLAUDE.md
