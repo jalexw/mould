@@ -7,7 +7,7 @@ import loadTemplateSourceDirectoriesListedInConfig from "@/lib/loadTemplateSourc
 import type { ITemplate } from "@/types/ITemplate";
 import { searchForTemplate, gatherAvailableTemplates } from "@/lib/Template";
 import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
-import { existsSync, lstatSync } from "fs";
+import { existsSync, lstatSync, readFileSync, writeFileSync } from "fs";
 import type {
   ITemplateConfig,
 } from "@/types/ITemplateConfig";
@@ -22,12 +22,15 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private program: Command;
   private readonly mouldAppDir: string;
 
+  private static templateSourcesFilePath(mouldAppDir: string): string {
+    return join(mouldAppDir, "template-sources.json");
+  }
 
   private static loadTemplateSourceDirectories(
     mouldAppDir: string,
   ): readonly TemplateSourceDirectory[] {
     const sources: TemplateSourceDirectory[] = [];
-    const templateSourcesFilePath: string = join(mouldAppDir, "template-sources.json");
+    const templateSourcesFilePath: string = MouldCommandLineInterface.templateSourcesFilePath(mouldAppDir);
     if (!existsSync(templateSourcesFilePath)) {
       console.warn(
         `⚠️ Expected template-sources.json file to exist at "${templateSourcesFilePath}", but doesn't.`
@@ -74,16 +77,41 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private addSetupMouldCliCommand(): void {
     this.program
       .command("setup")
-      .description("⚙️▶️ Run initial configuration steps for @jalexw/mould")
-      .action(() => {
-        console.error("Unimplemented");
-        process.exit(1);
+      .alias('init')
+      .description("⚙️ Run initial configuration steps for @jalexw/mould")
+      .action((): void => {
+        console.log("Welcome to the 'mould' setup wizard!");
+        const appDir: string = this.mouldAppDir
+        console.log("App directory: ", appDir);
+        const templateSourcesJsonFile: string = MouldCommandLineInterface.templateSourcesFilePath(appDir);
+        let templateSources: readonly string[] = [];
+        if (!existsSync(templateSourcesJsonFile)) {
+          writeFileSync(
+            templateSourcesJsonFile,
+            JSON.stringify(templateSources)
+          );
+          console.log(`Wrote default template sources file to "${templateSourcesJsonFile}"`);
+        } else {
+          const existingTemplateSources = JSON.parse(readFileSync(
+            templateSourcesJsonFile,
+            {
+              encoding: "utf-8"
+            }
+          ));
+          templateSources = existingTemplateSources;
+        }
+        console.log(`Template Sources Directories:`, templateSources)
+
+        console.log("Finished setup for 'mould'!")
       });
   }
 
   private addUseTemplateCommand(): void {
     const useCommand = this.program
       .command("use")
+      .alias("apply")
+      .alias("use-template")
+      .alias("apply-template")
       .description(
         "🏭 Load, apply substitutions, & output a configured template",
       )
@@ -251,6 +279,8 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private addListSourcesCommand(): void {
     this.program
       .command("sources")
+      .alias("source-directories")
+      .alias("source-dirs")
       .description("⚙️📁 List directories to be searched for templates")
       .action((): void => {
         console.log(this.templateSrcs.map((dir) => dir.path));
@@ -260,7 +290,8 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private addListTemplatesCommand(): void {
     this.program
       .command("list")
-      .description("🧩🧩🧩 List configured templates available for use")
+      .alias("templates")
+      .description("🧩 List configured templates available for use")
       .action(async (): Promise<void> => {
         const templates: readonly ITemplate[] = await gatherAvailableTemplates(
           this.templateSrcs,
