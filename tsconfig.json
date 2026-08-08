@@ -8,12 +8,17 @@
     "moduleResolution": "bundler",
     "paths": {
       "$/mould": ["./src/index.ts"],
-      "@/*": ["./src/*"]
+      "@/lib/*": ["./src/lib/*"],
+      "@/types/*": ["./src/lib/types/*"],
+      "@/schemas/*": ["./src/lib/schemas/*"],
     },
     "outDir": "dist",
+    "rootDir": "./src",
     "declaration": true,
-    "allowJs": false
+    "allowJs": false,
+    "types": ["bun-types"],
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "dist"]
 }

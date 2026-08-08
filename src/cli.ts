@@ -11,10 +11,9 @@ import { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import { existsSync, lstatSync } from "fs";
 import {
   ITemplateConfig,
-  MouldInputItemDefinition,
-  TemplateSubstitutionsList,
 } from "@/types/ITemplateConfig";
 import { createInterface } from "readline";
+import { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;

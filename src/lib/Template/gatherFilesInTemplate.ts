@@ -1,6 +1,8 @@
 import type { ITemplate } from "@/types/ITemplate";
-import type { ITemplateDirectory, ITemplateFile } from "@/types/ITemplateFile";
-import { existsSync, fstatSync, readFileSync } from "fs";
+import type { ITemplateFile } from "@/types/ITemplateFile";
+import type { ITemplateDirectory } from "@/types/ITemplateDirectory";
+
+import { existsSync, readFileSync } from "fs";
 import { readdir, lstat } from "fs/promises";
 import { join } from "path";
 

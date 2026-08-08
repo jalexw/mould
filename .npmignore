@@ -5,3 +5,10 @@ templates/
 out/
 output/
 template-sources.json
+
+**.test.ts
+**.test.js
+**.test.js.map
+**.test.d.ts
+
+**/__test__/**

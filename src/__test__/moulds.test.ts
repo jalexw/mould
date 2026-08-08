@@ -10,7 +10,7 @@ import mould from "$/mould";
 import { existsSync, mkdirSync, readdirSync, readFileSync } from "fs";
 import { join, normalize } from "path";
 
-const projectRootDir: string = normalize(join(__dirname, ".."));
+const projectRootDir: string = normalize(join(__dirname, "..", ".."));
 const testRunId: string = crypto.randomUUID();
 
 if (!existsSync(join(projectRootDir, "package.json"))) {

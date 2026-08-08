@@ -1,16 +1,17 @@
 import type { ITemplate } from "@/types/ITemplate";
 import {
   type ITemplateConfig,
-  templateConfigSchema,
 } from "@/types/ITemplateConfig";
-import type { ITemplateDirectory, ITemplateFile } from "@/types/ITemplateFile";
+import type { ITemplateFile } from "@/types/ITemplateFile";
+import type { ITemplateDirectory } from "@/types/ITemplateDirectory";
 import { readFile } from "fs/promises";
 import { join } from "path";
 import gatherFilesInTemplate from "./gatherFilesInTemplate";
 import exportTemplate from "./exportTemplate";
 import { existsSync } from "fs";
-import TemplateConfig from "./TemplateConfig";
+import TemplateConfig from "@/lib/TemplateConfig";
 import type { IExportTemplateOptions } from "@/types/IExportTemplateOptions";
+import templateConfigSchema from "@/schemas/templateConfigSchema";
 
 export class Template implements ITemplate {
   public readonly name: string;

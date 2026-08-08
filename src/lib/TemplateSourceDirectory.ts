@@ -1,8 +1,7 @@
 import type { ITemplate } from "@/types/ITemplate";
 import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import { readdir } from "fs/promises";
-import { existsSync } from "fs";
-import { Template } from "./Template";
+import { Template } from "@/lib/Template";
 import { join } from "path";
 
 export class TemplateSourceDirectory implements ITemplateSourceDirectory {

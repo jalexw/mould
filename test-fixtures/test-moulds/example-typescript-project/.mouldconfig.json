@@ -1,4 +1,5 @@
 {
+  "$schema": "../../../dist/openapi/mouldconfig.json",
   "inputs": [
     {
       "id": "project_name",

@@ -1,8 +1,9 @@
 import type {
   ITemplateConfig,
-  TemplateSubstitutionsList,
 } from "@/types/ITemplateConfig";
-import type { ITemplateDirectory, ITemplateFile } from "@/types/ITemplateFile";
+import type { ITemplateFile } from "@/types/ITemplateFile";
+import type { ITemplateDirectory } from "@/types/ITemplateDirectory";
+
 import { join } from "path";
 import { mkdir, writeFile } from "fs/promises";
 import { existsSync } from "fs";

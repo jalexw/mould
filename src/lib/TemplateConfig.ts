@@ -1,18 +1,18 @@
 import {
-  templateConfigSchema,
   type ITemplateConfig,
-  type MouldInputItemDefinition,
-  type TemplateSubstitutionsList,
 } from "@/types/ITemplateConfig";
+import type { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
+import type { TemplateSubstitutionList } from "@/types/TemplateSubstitutionList";
+import templateConfigSchema from "@/schemas/templateConfigSchema";
 
 interface ITemplateConfigConstructorOpts {
   inputs?: readonly MouldInputItemDefinition[] | undefined;
-  substitutions?: TemplateSubstitutionsList | undefined;
+  substitutions?: TemplateSubstitutionList | undefined;
 }
 
 export class TemplateConfig implements ITemplateConfig {
   private _inputs: readonly MouldInputItemDefinition[] | undefined;
-  private _substitutions: TemplateSubstitutionsList | undefined;
+  private _substitutions: TemplateSubstitutionList | undefined;
 
   private constructor({
     inputs,
@@ -30,7 +30,7 @@ export class TemplateConfig implements ITemplateConfig {
     return this._inputs;
   }
 
-  public get substitutions(): TemplateSubstitutionsList | undefined {
+  public get substitutions(): TemplateSubstitutionList | undefined {
     return this._substitutions;
   }
 

@@ -26,8 +26,12 @@ jobs:
         run: bun run build
       - name: Run package unit tests
         run: bun run test
-      - name: Publish package
+      - name: Set up .npmrc for GitHub
+        run: cp .npmrc.github .npmrc
+      - name: Publish package to GitHub
         run: bun publish --registry=https://npm.pkg.github.com
         env:
           GITHUB_PACKAGE_REGISTRY_USER: ${{ github.actor }}
           GITHUB_PACKAGE_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete .npmrc for GitHub
+        run: rm -rf .npmrc
