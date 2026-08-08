@@ -1,6 +1,6 @@
 {
   "name": "@jalexw/mould",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
   "repository": {

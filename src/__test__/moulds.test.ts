@@ -7,7 +7,7 @@ import { describe, expect, test } from "bun:test";
 import mould from "$/mould";
 
 // OS Utils
-import { existsSync, mkdirSync, readdirSync, readFileSync } from "fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from "fs";
 import { join, normalize } from "path";
 
 const projectRootDir: string = normalize(join(__dirname, "..", ".."));
@@ -75,6 +75,28 @@ export async function runMouldCommand(
     console.error(e);
     throw new Error("Error running 'mould' command within tests!");
   }
+}
+
+const mouldConfigFileName = ".mouldconfig.json" as const satisfies string;
+
+/**
+ * Every path (relative to `dir`) contained in `dir`, at any depth.
+ */
+function listExportedPathsRecursively(
+  dir: string,
+  relativeTo: readonly string[] = [],
+): readonly string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir)) {
+    const relativePath: readonly string[] = [...relativeTo, entry];
+    found.push(relativePath.join("/"));
+    if (lstatSync(join(dir, entry)).isDirectory()) {
+      found.push(
+        ...listExportedPathsRecursively(join(dir, entry), relativePath),
+      );
+    }
+  }
+  return found;
 }
 
 // A map of sample inputs for the given mould
@@ -146,6 +168,35 @@ function interactiveTestMouldValidator(output_path: string): boolean {
   return false;
 }
 
+function minimalMouldValidator(output_path: string): boolean {
+  // A minimal mould holds nothing but its '.mouldconfig.json', which is never
+  // copied through to the output, so the exported directory should be empty.
+  const exported: readonly string[] = readdirSync(output_path);
+  if (exported.length === 1 && typeof exported[0] === 'string' && exported[0] === '.DS_Store') {
+    return true;
+  }
+  if (exported.length !== 0) {
+    console.warn("Expected an empty export, but found: ", exported);
+    return false;
+  }
+
+  return true;
+}
+
+function nestedConfigMouldValidator(output_path: string): boolean {
+  // The nested '.mouldconfig.json' is dropped, but its sibling still exports —
+  // otherwise the "no leaked configs" assertion would pass vacuously.
+  const nestedFile = join(output_path, "src", "index.js");
+  if (!existsSync(nestedFile)) {
+    console.warn("No file found at ", nestedFile);
+    return false;
+  }
+
+  return readFileSync(nestedFile, { encoding: "utf-8" }).includes(
+    "Nested config mould!",
+  );
+}
+
 // Checks for a given mould
 const checks: Record<
   string,
@@ -156,7 +207,46 @@ const checks: Record<
     checkDidExampleTypeScriptProjectVariableSubstituteSuccess,
   "hello-world-mould": helloWorldMouldValidator,
   "interactive-test-mould": interactiveTestMouldValidator,
+  "minimal-mould": minimalMouldValidator,
+  "nested-config-mould": nestedConfigMouldValidator,
 };
+
+describe("create-minimal-template", () => {
+  // The 'minimal-mould' fixture is exactly what the scaffolder should emit
+  const minimalMouldFixture: string = join(mockTestMouldsPath, "minimal-mould");
+
+  test("scaffolds a template matching the 'minimal-mould' fixture", async () => {
+    const output_path: string = join(thisRunTmpPath, "scaffolded-minimal-mould");
+    expect(existsSync(output_path)).toBeFalsy();
+
+    await runMouldCommand(
+      ["create-minimal-template", output_path],
+      DEBUG,
+    );
+
+    expect(existsSync(output_path)).toBeTruthy();
+    expect(readdirSync(output_path)).toEqual([".mouldconfig.json"]);
+
+    const scaffolded: string = readFileSync(
+      join(output_path, ".mouldconfig.json"),
+      { encoding: "utf-8" },
+    );
+    const expected: string = readFileSync(
+      join(minimalMouldFixture, ".mouldconfig.json"),
+      { encoding: "utf-8" },
+    );
+    expect(scaffolded).toEqual(expected);
+  });
+
+  test("throws when something already exists at the supplied path", async () => {
+    const output_path: string = join(thisRunTmpPath, "already-exists");
+    mkdirSync(output_path);
+
+    expect(
+      runMouldCommand(["create-minimal-template", output_path], DEBUG),
+    ).rejects.toThrow();
+  });
+});
 
 describe("Test Moulds", () => {
   const testMoulds = listTestMoulds();
@@ -187,6 +277,16 @@ describe("Test Moulds", () => {
       await runMouldCommand(commandArgs, DEBUG);
 
       expect(existsSync(output_path)).toBeTruthy();
+
+      // A template's own '.mouldconfig.json' is mould's metadata, not template
+      // content, so it must never be copied into the export — at any depth.
+      const exportedPaths: readonly string[] =
+        listExportedPathsRecursively(output_path);
+      const leakedConfigs: readonly string[] = exportedPaths.filter(
+        (exportedPath: string): boolean =>
+          exportedPath.split("/").includes(mouldConfigFileName),
+      );
+      expect(leakedConfigs).toEqual([]);
 
       if (checks[testTemplateName]) {
         const checkFn:

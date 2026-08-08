@@ -14,6 +14,7 @@ import type {
 import { createInterface } from "readline";
 import type { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
 import { version as getPackageVersion } from "@/lib/version";
+import Template from "@/lib/Template";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -277,6 +278,31 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
     );
   }
 
+  private addCreateMinimalTemplateCommand(): void {
+    const createCommand = this.program
+      .command("create-minimal-template")
+      .alias("create-template")
+      .alias("new-template")
+      .description(
+        "🆕 Scaffold a new, minimal mould template directory with a '.mouldconfig.json' file",
+      )
+      .argument(
+        "<template_path>",
+        "Path of the new template directory to create",
+      );
+
+    createCommand.action(async (template_path: string): Promise<void> => {
+      if (typeof template_path !== "string" || !template_path) {
+        return createCommand.help();
+      }
+
+      const configPath: string = await Template.createMinimalTemplate({ template_path });
+
+      console.log(`🧩 Scaffolded a minimal mould template at '${template_path}'`);
+      console.log(`Wrote template configuration to '${configPath}'`);
+    });
+  }
+
   private addListSourcesCommand(): void {
     this.program
       .command("sources")
@@ -318,6 +344,7 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
     this.addVersionCommand();
     this.addSetupMouldCliCommand();
     this.addUseTemplateCommand();
+    this.addCreateMinimalTemplateCommand();
     this.addListTemplatesCommand();
     this.addListSourcesCommand();
   }

@@ -12,6 +12,7 @@ import { existsSync } from "fs";
 import TemplateConfig from "@/lib/TemplateConfig";
 import type { IExportTemplateOptions } from "@/types/IExportTemplateOptions";
 import templateConfigSchema from "@/schemas/templateConfigSchema";
+import type { ICreateMinimalTemplateOptions } from "./createMinimalTemplate";
 
 export class Template implements ITemplate {
   public readonly name: string;
@@ -117,5 +118,10 @@ export class Template implements ITemplate {
         `Template<"${this.name}"> exported successfully to '${output_path}'...`,
       );
     }
+  }
+
+  public static async createMinimalTemplate(opts: ICreateMinimalTemplateOptions): Promise<string> {
+    const createMinimalTemplateFn = await import('./createMinimalTemplate').then(mod => mod.default);
+    return await createMinimalTemplateFn(opts)
   }
 }
