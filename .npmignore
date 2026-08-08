@@ -1,4 +1,5 @@
-dist/bin/
+# NOTE: `dist/bin/` is intentionally NOT ignored - it holds `mould.js`, the
+# executable entrypoint exposed as the package's `bin` (see package.json).
 test-fixtures/
 src/
 templates/

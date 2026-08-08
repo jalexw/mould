@@ -8,6 +8,62 @@ After installing `mould`, you can create a `templates/` directory where every im
 
 For an example of what your own `templates/` folder may look like, [follow this link to see some example template moulds we use in test cases](./test-fixtures/test-moulds).
 
+## Run `mould` without installing (`bunx`/`npx`)
+
+`@jalexw/mould` publishes the `mould` command as the package's `bin`, so you can run it straight from
+the npm registry without cloning or installing anything:
+
+```bash
+bunx @jalexw/mould --help
+```
+
+The same works with `npx` if you'd rather not use `bun`:
+```bash
+npx @jalexw/mould --help
+```
+
+Every subcommand documented below works this way — swap the `mould` command for `bunx @jalexw/mould`:
+```bash
+# print the installed version
+bunx @jalexw/mould --version
+
+# list the templates available from your configured template sources
+bunx @jalexw/mould list
+
+# list the directories that are searched for templates
+bunx @jalexw/mould sources
+
+# run the initial configuration steps
+bunx @jalexw/mould setup
+
+# generate ./output from a template, passing inputs on the command line
+bunx @jalexw/mould use example-typescript-project ./output \
+  --template-sources ./test-fixtures/test-moulds \
+  --input org_scope=jalexw project_name=my_new_project_name
+```
+
+> Note: `bunx` caches packages between runs. Use `bunx @jalexw/mould@latest --help` to force the
+> newest published version.
+
+The published `mould` command is a plain Node.js entrypoint, so it runs anywhere Node 18+ does — no
+platform-specific binary to download.
+
+### Install `mould` globally from npm
+
+To get a persistent `mould` command on your PATH without building from source:
+```bash
+# with bun
+bun add --global @jalexw/mould
+
+# or with npm
+npm install --global @jalexw/mould
+```
+
+Then use the `mould` command directly:
+```bash
+mould --help
+```
+
 ## Install and build `mould` from source
 
 Download and build `mould` using `git` and `bun`:
@@ -16,18 +72,24 @@ Download and build `mould` using `git` and `bun`:
 cd ~ && git clone https://github.com/jalexw/mould.git && cd mould && bun install && bun run build
 ```
 
-There should now be an executable binary named `mould` in the `./dist/bin` folder. Add it to your Shell/Terminal's PATH so you can use the `mould` command from anywhere. Edit your `.zshrc` or `.bashrc` (or equivalent) to include the following line at the end:
+The build writes the `mould` entrypoint to `./dist/bin/mould.js`. Link your local checkout to put the
+`mould` command on your PATH:
 ```bash
-export PATH=$HOME/mould/dist/bin:$PATH
+# from within the cloned repo
+bun link
+
+# or, if you'd rather use npm
+npm link
 ```
 
-Refresh your shell and the `mould` command should now be available:
+The `mould` command should now be available anywhere:
 ```bash
-# refresh active shell (for zsh, use ~/.bashrc for bash) without creating a new one:
-source ~/.zshrc
-
-# test that 'mould' is now in your path
 mould --help
+```
+
+To run it without linking, invoke the built entrypoint directly:
+```bash
+node ~/mould/dist/bin/mould.js --help
 ```
 
 ## Usage
