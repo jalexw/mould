@@ -88,3 +88,14 @@ mould use example-typescript-project ./output \
 ```bash
 mould sources
 ```
+
+## JSON schemas
+
+The JSON Schema for `.mouldconfig.json` is generated on every build and published to GitHub Pages at [https://jalexw.github.io/mould/mouldconfig.json](https://jalexw.github.io/mould/mouldconfig.json).
+
+Reference it from your own config files for editor autocompletion and validation:
+```json
+{
+  "$schema": "https://jalexw.github.io/mould/mouldconfig.json"
+}
+```
