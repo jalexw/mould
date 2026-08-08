@@ -17,6 +17,9 @@ template-sources.json
 .npmrc.npmjs
 
 .github
+
 .env.example
+.env
+.env.*
 
 tsconfig.json
