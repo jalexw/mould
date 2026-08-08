@@ -10,6 +10,7 @@ Bun is the package manager and test runner (`bun@1.3.14`); the *published* CLI r
 bun install
 bun run dev -- list                  # run the CLI from TypeScript source (NODE_ENV=development)
 bun run build                        # tsc + tsc-alias, then generate the JSON Schema, then postbuild cleanup
+bun run build:github-pages           # Build the GitHub pages static site (run package + openapi build first with `bun run build`)
 bun run execute -- list              # run the compiled CLI from ./dist
 bun test                             # run tests (leaves ./tmp behind)
 bun run test                         # tests + `rm -rf ./tmp`
@@ -34,13 +35,14 @@ Substitution semantics worth knowing before changing `exportTemplate.ts`:
 - Transforms apply to **file contents only** — file and directory names are never rewritten.
 - The command exits 1 if the output path already exists.
 
-**Zod is the single source of truth for the config format.** `src/lib/schemas/templateConfigSchema.ts` produces both the `ITemplateConfig` TypeScript type (via `z.infer` in `src/lib/types/ITemplateConfig.ts`) and the published JSON Schema — `src/build-openapi/mouldconfig.ts` writes `templateConfigSchema.toJSONSchema()` to `dist/openapi/mouldconfig.json`, which CI deploys to GitHub Pages at `https://jalexw.github.io/mould/mouldconfig.json`. Changing the schema changes all three; run `bun run build` after editing it. The schema is `.strict()`, so unknown keys in a `.mouldconfig.json` are errors.
+**Zod is the single source of truth for the config format.** `src/lib/schemas/templateConfigSchema.ts` produces both the `ITemplateConfig` TypeScript type (via `z.infer` in `src/lib/types/ITemplateConfig.ts`) and the published JSON Schema — `src/build-openapi/mouldconfig.ts` writes `templateConfigSchema.toJSONSchema()` to `dist/openapi/mouldconfig.json`, which CI deploys to GitHub Pages at `https://jalexw.github.io/mould/openapi/mouldconfig.json`. Changing the schema changes all three; run `bun run build` after editing it. The schema is `.strict()`, so unknown keys in a `.mouldconfig.json` are errors.
 
 ## Build details
 
 - Path aliases (`$/mould`, `@/lib/*`, `@/types/*`, `@/schemas/*`) are declared in `tsconfig.json` and rewritten to relative paths by **tsc-alias**, which also appends the `.js` extensions Node's ESM resolver requires and `tsc` does not emit. Removing tsc-alias breaks the published package at runtime; keep imports on these aliases rather than deep relative paths.
-- `postbuild` runs `cleanup`, which deletes compiled tests, `__test__` directories, and `dist/build-openapi` from the output.
+- `postbuild` runs `cleanup`, which deletes compiled tests, `__test__` directories, `dist/build-openapi`, and `dist/build-github-pages-site` from the output.
 - `dist/` is gitignored but is what gets published; `.npmignore` controls the tarball contents.
+- `dist/github-pages/` is deployed to GitHub Pages at `https://jalexw.github.io/mould/` (built by `bun run build:github-pages` (ensure normal build is run first))
 
 ## Tests
 
