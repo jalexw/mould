@@ -1,0 +1,149 @@
+name: Build, Test, & Publish '@jalexw/mould' NPM Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  packages: write
+  contents: read
+
+env:
+  BUN_VERSION: 1.3.14
+
+jobs:
+  build:
+    name: "Build NPM package"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies with Bun
+        run: bun install
+      - name: Build package with Bun
+        run: bun run build
+      - name: Pack up package with Bun
+        run: bun pm pack --quiet --filename mould-package.tgz --gzip-level 9
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: package-tarball
+          path: mould-package.tgz
+          retention-days: 1
+      # Runs after `bun pm pack` so the index page isn't shipped inside the tarball
+      - name: Add landing page for the published schemas
+        run: |
+          cat > ./dist/openapi/index.html <<'HTML'
+          <!doctype html>
+          <html lang="en">
+            <head>
+              <meta charset="utf-8" />
+              <meta name="viewport" content="width=device-width, initial-scale=1" />
+              <title>mould — JSON schemas</title>
+            </head>
+            <body>
+              <h1>mould — JSON schemas</h1>
+              <p>
+                JSON Schema documents generated from the
+                <a href="https://github.com/jalexw/mould">@jalexw/mould</a> source.
+              </p>
+              <ul>
+                <li><a href="./mouldconfig.json">mouldconfig.json</a> — <code>.mouldconfig</code> template config schema</li>
+              </ul>
+            </body>
+          </html>
+          HTML
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist/openapi
+
+  test:
+    name: "Run Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies with Bun
+        run: bun install
+      - name: Run package unit tests
+        run: bun run test
+
+  publish-npmjs:
+    name: "Publish NPM package to NPMJS"
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://registry.npmjs.org"
+      - name: Download package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: package-tarball
+          path: .
+      - name: Assert tarball exists at expected location
+        run: |
+          if [ ! -f mould-package.tgz ]; then
+            echo "Error: mould-package.tgz not found!"
+            exit 1
+          fi
+      - name: Publish package to NPMJS registry
+        run: npm publish ./mould-package.tgz --provenance
+
+  publish-github:
+    name: "Publish NPM package to GitHub"
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Download package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: package-tarball
+          path: .
+      - name: Set up .npmrc for GitHub
+        run: cp .npmrc.github .npmrc
+      - name: Publish package to GitHub
+        run: bun publish ./mould-package.tgz --registry=https://npm.pkg.github.com
+        env:
+          GITHUB_PACKAGE_REGISTRY_USER: ${{ github.actor }}
+          GITHUB_PACKAGE_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  deploy-openapi-pages:
+    name: "Deploy OpenAPI schemas to GitHub Pages"
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    permissions:
+      pages: write
+      id-token: write
+    # Never cancel an in-flight Pages deployment; queue behind it instead
+    concurrency:
+      group: "pages"
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
