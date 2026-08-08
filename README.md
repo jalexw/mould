@@ -10,8 +10,8 @@ For an example of what your own `templates/` folder may look like, [follow this 
 
 ## Run `mould` without installing (`bunx`/`npx`)
 
-`@jalexw/mould` publishes the compiled `mould` executable as the package's `bin`, so you can run it
-straight from the npm registry without cloning or installing anything:
+`@jalexw/mould` publishes the `mould` command as the package's `bin`, so you can run it straight from
+the npm registry without cloning or installing anything:
 
 ```bash
 bunx @jalexw/mould --help
@@ -42,12 +42,11 @@ bunx @jalexw/mould use example-typescript-project ./output \
   --input org_scope=jalexw project_name=my_new_project_name
 ```
 
-> Note: `bunx` caches packages between runs. Use `bunx --bun @jalexw/mould@latest --help` to force the
+> Note: `bunx` caches packages between runs. Use `bunx @jalexw/mould@latest --help` to force the
 > newest published version.
 
-> ⚠️ The published `bin` is a single self-contained binary compiled by CI on Linux x64, so it only runs
-> on Linux x64 machines. On macOS or Windows, [build from source](#install-and-build-mould-from-source)
-> until per-platform binaries are published.
+The published `mould` command is a plain Node.js entrypoint, so it runs anywhere Node 18+ does — no
+platform-specific binary to download.
 
 ### Install `mould` globally from npm
 
@@ -73,18 +72,24 @@ Download and build `mould` using `git` and `bun`:
 cd ~ && git clone https://github.com/jalexw/mould.git && cd mould && bun install && bun run build
 ```
 
-There should now be an executable binary named `mould` in the `./dist/bin` folder. Add it to your Shell/Terminal's PATH so you can use the `mould` command from anywhere. Edit your `.zshrc` or `.bashrc` (or equivalent) to include the following line at the end:
+The build writes the `mould` entrypoint to `./dist/bin/mould.js`. Link your local checkout to put the
+`mould` command on your PATH:
 ```bash
-export PATH=$HOME/mould/dist/bin:$PATH
+# from within the cloned repo
+bun link
+
+# or, if you'd rather use npm
+npm link
 ```
 
-Refresh your shell and the `mould` command should now be available:
+The `mould` command should now be available anywhere:
 ```bash
-# refresh active shell (for zsh, use ~/.bashrc for bash) without creating a new one:
-source ~/.zshrc
-
-# test that 'mould' is now in your path
 mould --help
+```
+
+To run it without linking, invoke the built entrypoint directly:
+```bash
+node ~/mould/dist/bin/mould.js --help
 ```
 
 ## Usage
