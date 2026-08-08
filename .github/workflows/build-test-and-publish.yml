@@ -9,29 +9,91 @@ permissions:
   packages: write
   contents: read
 
+env:
+  BUN_VERSION: 1.3.14
+
 jobs:
-  build-test-and-publish:
-    name: "Build, test, & publish NPM package"
+  build:
+    name: "Build NPM package"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.2.21
+          bun-version: ${{ env.BUN_VERSION }}
       - name: Install dependencies with Bun
         run: bun install
       - name: Build package with Bun
         run: bun run build
+      - name: Pack up package with Bun
+        run: bun pm pack --quiet --filename mould-package.tgz --gzip-level 9
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: package-tarball
+          path: mould-package.tgz
+          retention-days: 1
+
+  test:
+    name: "Run Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies with Bun
+        run: bun install
       - name: Run package unit tests
         run: bun run test
+
+  publish-npmjs:
+    name: "Publish NPM package to NPMJS"
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: "https://registry.npmjs.org"
+      - name: Download package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: package-tarball
+          path: .
+      - name: Assert tarball exists at expected location
+        run: |
+          if [ ! -f mould-package.tgz ]; then
+            echo "Error: mould-package.tgz not found!"
+            exit 1
+          fi
+      - name: Publish package to NPMJS registry
+        run: npm publish ./mould-package.tgz --provenance
+
+  publish-github:
+    name: "Publish NPM package to GitHub"
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Download package artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: package-tarball
+          path: .
       - name: Set up .npmrc for GitHub
         run: cp .npmrc.github .npmrc
       - name: Publish package to GitHub
-        run: bun publish --registry=https://npm.pkg.github.com
+        run: bun publish ./mould-package.tgz --registry=https://npm.pkg.github.com
         env:
           GITHUB_PACKAGE_REGISTRY_USER: ${{ github.actor }}
           GITHUB_PACKAGE_REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Delete .npmrc for GitHub
-        run: rm -rf .npmrc

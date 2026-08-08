@@ -12,3 +12,6 @@ template-sources.json
 **.test.d.ts
 
 **/__test__/**
+
+.npmrc.github
+.npmrc.npmjs
