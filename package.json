@@ -1,8 +1,12 @@
 {
   "name": "@jalexw/mould",
+  "version": "0.1.1",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
-  "version": "0.1.0",
+  "repository": {
+    "url": "https://github.com/jalexw/mould.git",
+    "type": "git"
+  },
   "dependencies": {
     "commander": "14.0.0",
     "zod": "4.4.3"
