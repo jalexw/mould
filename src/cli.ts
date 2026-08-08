@@ -13,6 +13,7 @@ import type {
 } from "@/types/ITemplateConfig";
 import { createInterface } from "readline";
 import type { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
+import { version as getPackageVersion } from "@/lib/version";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -304,7 +305,17 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       });
   }
 
+  private addVersionCommand(): void {
+    this.program
+      .command("version")
+      .action((): void => {
+        const versionSemver = getPackageVersion(this.mouldAppDir);
+        console.log("'mould' Build Version: ", versionSemver);
+      })
+  }
+
   private setupCommands(): void {
+    this.addVersionCommand();
     this.addSetupMouldCliCommand();
     this.addUseTemplateCommand();
     this.addListTemplatesCommand();
