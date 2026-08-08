@@ -1,5 +1,4 @@
 import type { ITemplate } from "@/types/ITemplate";
-import gatherAvailableTemplates from "./gatherAvailableTemplates";
 import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 
 export interface ISearchForTemplateConfig {
@@ -7,7 +6,7 @@ export interface ISearchForTemplateConfig {
   searchCriteria: { name: string };
 }
 
-async function searchForTemplate({
+export async function searchForTemplate({
   templateSources,
   searchCriteria,
 }: ISearchForTemplateConfig): Promise<ITemplate> {

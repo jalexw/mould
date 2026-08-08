@@ -4,16 +4,15 @@ import version from "@/lib/version";
 import TemplateSourceDirectory from "@/lib/TemplateSourceDirectory";
 import { join } from "path";
 import loadTemplateSourceDirectoriesListedInConfig from "@/lib/loadTemplateSourceDirectoriesListedInConfig";
-import gatherAvailableTemplates from "@/lib/gatherAvailableTemplates";
 import type { ITemplate } from "@/types/ITemplate";
-import searchForTemplate from "@/lib/searchForTemplate";
-import { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
+import { searchForTemplate, gatherAvailableTemplates } from "@/lib/Template";
+import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import { existsSync, lstatSync } from "fs";
-import {
+import type {
   ITemplateConfig,
 } from "@/types/ITemplateConfig";
 import { createInterface } from "readline";
-import { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
+import type { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -23,19 +22,29 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private program: Command;
   private readonly mouldAppDir: string;
 
+
   private static loadTemplateSourceDirectories(
     mouldAppDir: string,
   ): readonly TemplateSourceDirectory[] {
     const sources: TemplateSourceDirectory[] = [];
-    const templateSourcesFilePath = join(mouldAppDir, "template-sources.json");
+    const templateSourcesFilePath: string = join(mouldAppDir, "template-sources.json");
+    if (!existsSync(templateSourcesFilePath)) {
+      console.warn(
+        `⚠️ Expected template-sources.json file to exist at "${templateSourcesFilePath}", but doesn't.`
+      );
+      console.warn("Falling back to not having any template sources configured.")
+      return [];
+    }
+
     try {
       const sourcesSpecifiedInConfig: readonly TemplateSourceDirectory[] =
         loadTemplateSourceDirectoriesListedInConfig(templateSourcesFilePath);
       sources.push(...sourcesSpecifiedInConfig);
     } catch (e: unknown) {
       console.warn(
-        "⚠️ Failed to load directories to search for templates in from 'template-sources.json' file!",
+        "⚠️ Failed to load directories to search for templates! in from 'template-sources.json' file!",
       );
+      console.warn(e);
     }
     return sources;
   }
