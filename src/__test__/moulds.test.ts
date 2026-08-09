@@ -242,6 +242,143 @@ const checks: Record<
   "nested-config-mould": nestedConfigMouldValidator,
 };
 
+describe("MOULD_TEMPLATE_SOURCES", () => {
+  const environmentVariable = "MOULD_TEMPLATE_SOURCES" as const;
+
+  /**
+   * A sources file listing a single template by path, so that a template is
+   * only reachable through the sources file that names it.
+   */
+  function writeSingleTemplateSourcesFile(
+    fileName: string,
+    templateName: string,
+  ): string {
+    const path: string = join(thisRunTmpPath, fileName);
+    writeFileSync(
+      path,
+      JSON.stringify(
+        {
+          $schema:
+            "https://jalexw.github.io/mould/openapi/template-sources.json",
+          templates: [join(mockTestMouldsPath, templateName)],
+          templatesDirectories: [],
+        },
+        null,
+        2,
+      ),
+    );
+    return path;
+  }
+
+  async function withEnvironmentVariable<T>(
+    value: string,
+    run: () => Promise<T>,
+  ): Promise<T> {
+    const previous: string | undefined = process.env[environmentVariable];
+    process.env[environmentVariable] = value;
+    try {
+      return await run();
+    } finally {
+      if (typeof previous === "string") {
+        process.env[environmentVariable] = previous;
+      } else {
+        delete process.env[environmentVariable];
+      }
+    }
+  }
+
+  test("templates are reachable through the environment variable alone", async () => {
+    const output_path: string = join(thisRunTmpPath, "env-var-only");
+    expect(existsSync(output_path)).toBeFalsy();
+
+    await withEnvironmentVariable(testSourcesFilePath, () =>
+      runMouldCommand(["use", "hello-world-mould", output_path], DEBUG),
+    );
+
+    expect(existsSync(output_path)).toBeTruthy();
+    expect(helloWorldMouldValidator(output_path)).toBeTrue();
+  });
+
+  test("both the environment variable and --sources-files are searched", async () => {
+    // Each sources file names exactly one template, so a template can only be
+    // found if the sources file naming it was searched.
+    const flagSourcesFile: string = writeSingleTemplateSourcesFile(
+      "flag-template-sources.json",
+      "hello-world-mould",
+    );
+    const envSourcesFile: string = writeSingleTemplateSourcesFile(
+      "env-template-sources.json",
+      "minimal-mould",
+    );
+
+    const fromFlagOutputPath: string = join(thisRunTmpPath, "from-flag");
+    const fromEnvOutputPath: string = join(thisRunTmpPath, "from-env");
+
+    await withEnvironmentVariable(envSourcesFile, async () => {
+      await runMouldCommand(
+        [
+          "--sources-files",
+          flagSourcesFile,
+          "use",
+          "hello-world-mould",
+          fromFlagOutputPath,
+        ],
+        DEBUG,
+      );
+      await runMouldCommand(
+        [
+          "--sources-files",
+          flagSourcesFile,
+          "use",
+          "minimal-mould",
+          fromEnvOutputPath,
+        ],
+        DEBUG,
+      );
+    });
+
+    expect(helloWorldMouldValidator(fromFlagOutputPath)).toBeTrue();
+    expect(minimalMouldValidator(fromEnvOutputPath)).toBeTrue();
+  });
+
+  test("the environment variable replaces the default search locations", async () => {
+    const logged: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]): void => {
+      logged.push(args.map((arg) => String(arg)).join(" "));
+    };
+    try {
+      await withEnvironmentVariable(testSourcesFilePath, () =>
+        runMouldCommand(["template-sources"], DEBUG),
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(logged).toEqual([` - ${testSourcesFilePath}`]);
+  });
+
+  test("a path listed in both places is only searched once", async () => {
+    const logged: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]): void => {
+      logged.push(args.map((arg) => String(arg)).join(" "));
+    };
+    try {
+      await withEnvironmentVariable(testSourcesFilePath, () =>
+        runMouldCommand(
+          ["--sources-files", testSourcesFilePath, "template-sources"],
+          DEBUG,
+        ),
+      );
+    } finally {
+      console.log = originalLog;
+    }
+
+    expect(logged).toEqual([` - ${testSourcesFilePath}`]);
+  });
+});
+
 describe("create-minimal-template", () => {
   // The 'minimal-mould' fixture is exactly what the scaffolder should emit
   const minimalMouldFixture: string = join(mockTestMouldsPath, "minimal-mould");

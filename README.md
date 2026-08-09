@@ -112,6 +112,25 @@ Every command reads `~/mould/template-sources.json` by default. Pass the program
 mould --sources-files ./test-fixtures/test-template-sources.json list
 ```
 
+The same comma-separated list can be set in the `MOULD_TEMPLATE_SOURCES` environment variable, which is handy for pointing a whole shell session (or a CI job) at a particular set of sources files:
+```bash
+export MOULD_TEMPLATE_SOURCES=./test-fixtures/test-template-sources.json
+mould list
+```
+
+When both the environment variable and the flag are set, every file listed in either one is searched:
+```bash
+# searches both ./project-sources.json and ./team-sources.json
+MOULD_TEMPLATE_SOURCES=./team-sources.json mould --sources-files ./project-sources.json list
+```
+
+Setting either one replaces the default search locations entirely — if you still want `~/mould/template-sources.json`, list it explicitly:
+```bash
+MOULD_TEMPLATE_SOURCES=~/mould/template-sources.json,./project-sources.json mould list
+```
+
+`mould template-sources` prints the sources files that the other commands will read, which is the quickest way to check what a given combination resolves to.
+
 ### Create a new template
 
 Inside one of your template source directories, create a folder:

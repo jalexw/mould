@@ -2,7 +2,7 @@ import { Command } from "commander";
 import type { IMouldCommandLineInterface } from "@/types/IMouldCommandLineInterface";
 import version from "@/lib/version";
 import TemplateSourceDirectory from "@/lib/TemplateSourceDirectory";
-import { join } from "path";
+import { join, resolve } from "path";
 import type { ITemplate } from "@/types/ITemplate";
 import { searchForTemplate, gatherAvailableTemplates } from "@/lib/Template";
 import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
@@ -25,6 +25,13 @@ export interface IMouldCommandLineInterfaceConstructorOpts {
 export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   private program: Command;
   private readonly mouldAppDir: string;
+
+  /**
+   * Environment variable holding a comma-separated list of paths to
+   * 'template-sources.json' files, as an alternative to `--sources-files`.
+   */
+  public static readonly templateSourcesEnvironmentVariable =
+    "MOULD_TEMPLATE_SOURCES" as const satisfies string;
 
   /**
    * @param searchDir
@@ -74,8 +81,62 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
   }
 
   /**
+   * @param commaSeparatedPathList e.g. `"./a/template-sources.json,./b/template-sources.json"`
+   * @returns The individual, trimmed paths; blank entries are dropped
+   */
+  private static parseCommaSeparatedPaths(
+    commaSeparatedPathList: string | null | undefined
+  ): readonly string[] {
+    if (typeof commaSeparatedPathList !== 'string') {
+      return [];
+    }
+    return commaSeparatedPathList
+      .split(",")
+      .map((path: string): string => path.trim())
+      .filter((path: string): boolean => !!path);
+  }
+
+  /**
+   * @description Paths listed in the `MOULD_TEMPLATE_SOURCES` environment variable
+   * @returns `readonly string[]` An array of the paths to template sources files
+   */
+  private static templateSourcesFilesFromEnvironment(
+    env: typeof process.env = process.env
+  ): readonly string[] {
+    return MouldCommandLineInterface.parseCommaSeparatedPaths(
+      env[MouldCommandLineInterface.templateSourcesEnvironmentVariable]
+    );
+  }
+
+  /**
+   * @description Drop repeated paths, keeping the first occurrence. Paths that
+   * resolve to the same file (e.g. './x.json' and 'x.json') count as repeats.
+   */
+  private static dedupePaths(paths: readonly string[]): readonly string[] {
+    const seen = new Set<string>();
+    const deduped: string[] = [];
+    for (const path of paths) {
+      let key: string;
+      try {
+        key = resolve(path);
+      } catch {
+        key = path;
+      }
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      deduped.push(path);
+    }
+    return deduped;
+  }
+
+  /**
    *
-   * @description Parse sources files (set manually by --sources-files <path1,path2,etc.>)
+   * @description Parse sources files, which can be set by the `--sources-files
+   * <path1,path2,etc.>` option and/or by the `MOULD_TEMPLATE_SOURCES`
+   * environment variable. When both are set, both sets of paths are searched.
+   * The default search locations are only used when neither one is set.
    * @param options Commander.js options object to parse flag from
    * @returns `readonly string[]` An array of the paths to template sources files
    */
@@ -103,21 +164,37 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
     if (typeof commaSeparatedPathList !== 'string' && process.env.NODE_ENV === 'development') {
       console.warn("[parseSourcesFilesOption] Failed to resolve a sources files string option from command options!");
     }
-    if (typeof commaSeparatedPathList !== 'string') {
-      const defaultConfigSearchDirectories = this.defaultMouldSourcesConfigSearchDirectories();
-      const defaultSourcesFilesPaths = defaultConfigSearchDirectories.map(
-        MouldCommandLineInterface.templateSourcesFilePath
-      )
+
+    const fromCliOption: readonly string[] =
+      MouldCommandLineInterface.parseCommaSeparatedPaths(commaSeparatedPathList);
+    const fromEnvironment: readonly string[] =
+      MouldCommandLineInterface.templateSourcesFilesFromEnvironment();
+
+    // Either source of paths replaces the default search locations entirely; a
+    // path only ends up in the defaults by being explicitly listed again.
+    const explicitlyConfigured: readonly string[] = MouldCommandLineInterface.dedupePaths([
+      ...fromCliOption,
+      ...fromEnvironment,
+    ]);
+
+    if (explicitlyConfigured.length > 0) {
       if (process.env.NODE_ENV === 'development') {
-        console.log("[parseSourcesFilesOption] Falling back to defaults: ", defaultSourcesFilesPaths)
+        console.log(
+          "[parseSourcesFilesOption] Using explicitly configured sources files: ",
+          explicitlyConfigured
+        );
       }
-      return defaultSourcesFilesPaths
+      return explicitlyConfigured;
     }
-    if (commaSeparatedPathList.includes(",")) {
-      return commaSeparatedPathList.split(",")
-    } else {
-      return [commaSeparatedPathList]
+
+    const defaultConfigSearchDirectories = this.defaultMouldSourcesConfigSearchDirectories();
+    const defaultSourcesFilesPaths = defaultConfigSearchDirectories.map(
+      MouldCommandLineInterface.templateSourcesFilePath
+    )
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[parseSourcesFilesOption] Falling back to defaults: ", defaultSourcesFilesPaths)
     }
+    return defaultSourcesFilesPaths
   }
 
   private static resolveSourcesFileConfig(sources_file_path: string): MouldCliConfig {
@@ -163,6 +240,10 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
 
   private static parseSourcesFiles(paths: readonly string[]): readonly MouldCliConfig[] {
     for (const path of paths) {
+      if (!existsSync(path)) {
+        console.error(`Failed to resolve template sources configuration file at path: "${path}"`);
+        process.exit(1);
+      }
       const stats = lstatSync(path);
       if (stats.isDirectory()) {
         console.error(`"${path}" is a directory, not a template-sources.json file!`);
@@ -513,7 +594,7 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
 
     if (process.env.NODE_ENV === 'development') {
       console.log(
-        "[MouldCommandLineInterface] Default sources files list when --sources-files is not set: ",
+        `[MouldCommandLineInterface] Default sources files list when neither --sources-files nor $${MouldCommandLineInterface.templateSourcesEnvironmentVariable} is set: `,
         defaultSourcesFilesOptCsv
       )
     }
@@ -524,10 +605,12 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       "🧩🪄 Generate sample projects and insert code snippets from your configurable templates collection",
     );
     this.program.version(version(this.mouldAppDir));
+    // No commander default: the defaults are applied in
+    // `parseSourcesFilesOption` instead, so that an unset flag stays
+    // distinguishable from an explicitly configured one.
     this.program.option(
       "--sources-files <comma_separated_filepaths>",
-      'A comma-separated list of paths to template-sources.json files; each of which can define paths or groups of paths to templates.',
-      defaultSourcesFilesOptCsv,
+      `A comma-separated list of paths to template-sources.json files; each of which can define paths or groups of paths to templates. Paths can also be supplied in the $${MouldCommandLineInterface.templateSourcesEnvironmentVariable} environment variable; when both are set, every listed file is searched. Setting either one replaces the default search locations${defaultSourcesFilesOptCsv ? ` (${defaultSourcesFilesOptCsv})` : ""}.`,
     )
 
     this.setupCommands();
