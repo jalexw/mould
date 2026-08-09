@@ -9,13 +9,18 @@ interface ITemplateConfigConstructorOpts {
   data: ITemplateConfig;
 }
 
-export class TemplateConfig implements ITemplateConfig {
+/**
+ * @name MouldTemplateConfig
+ * @description Configuration for a single `mould` template
+ * @file Usually parsed from a `.mouldconfig.json`
+ */
+export class MouldTemplateConfig implements ITemplateConfig {
   private static readonly schema = templateConfigSchema;
   private _inputs: readonly MouldInputItemDefinition[] | undefined;
   private _substitutions: TemplateSubstitutionList | undefined;
 
   private constructor(opts: ITemplateConfigConstructorOpts) {
-    const parsed = TemplateConfig.safeParse(opts.data)
+    const parsed = MouldTemplateConfig.safeParse(opts.data)
     if (!parsed.success) {
       throw new TypeError("Failed to initialize from the 'data' field supplied in TemplateConfig constructor!", {
         cause: parsed.error
@@ -26,8 +31,8 @@ export class TemplateConfig implements ITemplateConfig {
     this._substitutions = substitutions;
   }
 
-  public static get default(): TemplateConfig {
-    return new TemplateConfig({
+  public static get default(): MouldTemplateConfig {
+    return new MouldTemplateConfig({
       data: {}
     });
   }
@@ -41,17 +46,17 @@ export class TemplateConfig implements ITemplateConfig {
   }
 
   private static safeParse(maybeConfig: unknown) {
-    return TemplateConfig.schema.safeParse(maybeConfig);
+    return MouldTemplateConfig.schema.safeParse(maybeConfig);
   }
 
   public static isValidConfig(
     maybeConfig: unknown,
   ): maybeConfig is ITemplateConfig {
-    if (TemplateConfig.safeParse(maybeConfig).success) {
+    if (MouldTemplateConfig.safeParse(maybeConfig).success) {
       return true;
     }
     return false;
   }
 }
 
-export default TemplateConfig;
+export default MouldTemplateConfig;

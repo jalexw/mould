@@ -9,7 +9,7 @@ import { join } from "path";
 import gatherFilesInTemplate from "./gatherFilesInTemplate";
 import exportTemplate from "./exportTemplate";
 import { existsSync } from "fs";
-import TemplateConfig from "@/lib/TemplateConfig";
+import MouldTemplateConfig from "@/lib/MouldTemplateConfig";
 import type { IExportTemplateOptions } from "@/types/IExportTemplateOptions";
 import templateConfigSchema from "@/schemas/templateConfigSchema";
 import type { ICreateMinimalTemplateOptions } from "./createMinimalTemplate";
@@ -77,7 +77,7 @@ export class Template implements ITemplate {
   }
 
   protected static get defaultTemplateConfig(): ITemplateConfig {
-    return TemplateConfig.default;
+    return MouldTemplateConfig.default;
   }
 
   public async export({

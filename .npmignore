@@ -6,6 +6,7 @@ templates/
 out/
 output/
 template-sources.json
+template-sources.json
 dist/github-pages/
 dist/build-openapi/
 dist/build-github-pages-site/

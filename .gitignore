@@ -1,6 +1,7 @@
 node_modules/
 
 template-sources.json
+template-sources.json
 templates/
 
 tmp/

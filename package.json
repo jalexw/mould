@@ -1,6 +1,6 @@
 {
   "name": "@jalexw/mould",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
   "repository": {
@@ -23,7 +23,7 @@
   "scripts": {
     "dev": "NODE_ENV=development bun run src/bin/mould.ts",
     "build:typescript": "tsc --project tsconfig.json && tsc-alias --project tsconfig.json",
-    "build:mouldconfig-openapi": "bun run ./src/build-openapi/mouldconfig.ts",
+    "build:json-schemas": "bun run ./src/build-openapi/build-json-schemas.ts",
     "build:github-pages": "bun run ./src/build-github-pages-site/build-github-pages-site.ts",
     "build": "bun run build:typescript && bun run build:mouldconfig-openapi",
     "postbuild": "bun run cleanup",
