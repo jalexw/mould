@@ -18,10 +18,9 @@ Pick the lightest option that fits the job:
 
 ## Requirements
 
-`package.json` declares `engines.node >= 24`, so install with Node 24 or newer.
-npm prints an `EBADENGINE` warning on older Node; the README's looser "Node 18+"
-claim predates that floor — treat 24 as the supported minimum. `bun` satisfies
-the requirement on its own.
+`package.json` declares `engines.node >= 24`, so install with Node 24 or newer —
+npm prints an `EBADENGINE` warning on anything older. `bun` satisfies the
+requirement on its own.
 
 Check first — if this prints a version, mould is already installed and there is
 nothing to do:

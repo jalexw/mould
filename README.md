@@ -45,7 +45,7 @@ bunx @jalexw/mould --sources-files ./test-fixtures/test-template-sources.json \
 > Note: `bunx` caches packages between runs. Use `bunx @jalexw/mould@latest --help` to force the
 > newest published version.
 
-The published `mould` command is a plain Node.js entrypoint, so it runs anywhere Node 18+ does — no
+The published `mould` command is a plain Node.js entrypoint, so it runs anywhere Node 24+ does — no
 platform-specific binary to download.
 
 ### Install `mould` globally from npm
