@@ -1,23 +1,26 @@
-import TemplateSourceDirectory from "@/lib/TemplateSourceDirectory";
+import TemplateSourceDirectory, {
+  ExplicitTemplateSourceDirectory,
+} from "@/lib/TemplateSourceDirectory";
+import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import type { MouldTemplateSourcesConfigFile } from "@/types/MouldTemplateSourcesConfigFile";
-import collectAllSubdirectories from "./collect-all-subdirectories";
 
 export function loadTemplateSourceDirectories(
   config: MouldTemplateSourcesConfigFile,
-): readonly TemplateSourceDirectory[] {
-  const templateSourceDirectoryRefs: TemplateSourceDirectory[] = [];
+): readonly ITemplateSourceDirectory[] {
+  const templateSourceDirectoryRefs: ITemplateSourceDirectory[] = [];
 
-  const templatePaths: Set<string> = new Set(config.templates);
-
-  for (const templatesDirectory of config.templatesDirectories) {
-    const subdirectories: readonly string[] = collectAllSubdirectories(templatesDirectory);
-    for (const templateSubdirectory of subdirectories) {
-      templatePaths.add(templateSubdirectory);
-    }
+  // Each entry names a single template
+  for (const templatePath of new Set(config.templates)) {
+    templateSourceDirectoryRefs.push(
+      new ExplicitTemplateSourceDirectory(templatePath),
+    );
   }
 
-  for (const templatePath of templatePaths) {
-    templateSourceDirectoryRefs.push(new TemplateSourceDirectory(templatePath))
+  // Each entry names a directory whose subdirectories are the templates
+  for (const templatesDirectory of new Set(config.templatesDirectories)) {
+    templateSourceDirectoryRefs.push(
+      new TemplateSourceDirectory(templatesDirectory),
+    );
   }
 
   return templateSourceDirectoryRefs;

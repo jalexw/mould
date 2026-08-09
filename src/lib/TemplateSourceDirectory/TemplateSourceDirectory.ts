@@ -12,13 +12,15 @@ export class TemplateSourceDirectory implements ITemplateSourceDirectory {
   }
 
   public async listTemplates(): Promise<readonly ITemplate[]> {
-    const childrenFiles: readonly string[] = await readdir(this.path);
-    const childPath: ITemplate[] = childrenFiles.map(
-      (templateName: string): ITemplate => {
-        return new Template(templateName, join(this.path, templateName));
-      },
-    );
-    return childPath;
+    // Only subdirectories are templates; loose files in a source directory
+    // (a stray '.DS_Store', a README) are not.
+    const children = await readdir(this.path, { withFileTypes: true });
+    return children
+      .filter((child) => child.isDirectory())
+      .map(
+        (child): ITemplate =>
+          new Template(child.name, join(this.path, child.name)),
+      );
   }
 }
 

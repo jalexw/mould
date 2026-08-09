@@ -1,0 +1,5 @@
+{
+  "$schema": "https://jalexw.github.io/mould/openapi/template-sources.json",
+  "templates": [],
+  "templatesDirectories": ["./test-fixtures/test-moulds"]
+}

@@ -7,8 +7,15 @@ import { describe, expect, test } from "bun:test";
 import mould from "$/mould";
 
 // OS Utils
-import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync } from "fs";
 import { join, normalize } from "path";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync
+} from "fs";
 
 const projectRootDir: string = normalize(join(__dirname, "..", ".."));
 const testRunId: string = crypto.randomUUID();
@@ -37,6 +44,30 @@ const thisRunTmpPath = join(tmpPath, `test-run-${testRunId}`);
 if (!existsSync(thisRunTmpPath)) {
   mkdirSync(thisRunTmpPath);
 }
+
+/**
+ * Templates are reached through the global `--sources-files` flag, which takes
+ * 'template-sources.json' files rather than template directories. The committed
+ * './test-fixtures/test-template-sources.json' says the same thing with a
+ * relative path; this copy uses absolute paths so the suite does not depend on
+ * the working directory it is run from.
+ */
+const testSourcesFilePath: string = join(
+  thisRunTmpPath,
+  "test-template-sources.json",
+);
+writeFileSync(
+  testSourcesFilePath,
+  JSON.stringify(
+    {
+      $schema: "https://jalexw.github.io/mould/openapi/template-sources.json",
+      templates: [],
+      templatesDirectories: [mockTestMouldsPath],
+    },
+    null,
+    2,
+  ),
+);
 
 function listTestMoulds(): readonly string[] {
   return readdirSync(mockTestMouldsPath);
@@ -257,12 +288,13 @@ describe("Test Moulds", () => {
       const output_path: string = join(thisRunTmpPath, testMould);
       expect(existsSync(output_path)).toBeFalsy();
 
+      // '--sources-files' is a program-level flag, so it precedes the subcommand
       const commandArgs: string[] = [
+        "--sources-files",
+        testSourcesFilePath,
         "use",
         testTemplateName,
         output_path,
-        "--template-sources",
-        mockTestMouldsPath,
       ];
 
       // Pass pre-saved sample inputs if some are set

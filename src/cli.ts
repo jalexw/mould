@@ -80,25 +80,29 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
    * @returns `readonly string[]` An array of the paths to template sources files
    */
   private parseSourcesFilesOption(options: unknown): readonly string[] {
-    function parseCommaSeparatedListString(): string | null {
-      if (typeof options !== 'object' || options === null) {
-        throw new TypeError("Expected 'options' to be a truthy object!", {
-          cause: `Received type ${typeof options}`
-        });
+    function parseCommaSeparatedListString(opts: unknown): string | null {
+      if (typeof opts !== 'object' || opts === null) {
+        return null;
       }
-      if ("sourcesFiles" in options && typeof options['sourcesFiles'] === 'string') {
-        return options['sourcesFiles'];
-      } else if ("sources-files" in options && typeof options['sources-files'] === 'string') {
-        return options['sources-files'];
+      if ("sourcesFiles" in opts && typeof opts['sourcesFiles'] === 'string' && !!opts['sourcesFiles']) {
+        return opts['sourcesFiles'];
+      } else if ("sources-files" in opts && typeof opts['sources-files'] === 'string' && !!opts['sources-files']) {
+        return opts['sources-files'];
       } else {
-        if (process.env.NODE_ENV === 'development') {
-          console.warn("[parseCommaSeparatedListString] Failed to resolve a sources files string option from command options! Returning null...");
-        }
         return null;
       }
     }
 
-    const commaSeparatedPathList: string | null = parseCommaSeparatedListString();
+    // `--sources-files` is declared on the program, not on each subcommand, so
+    // commander hands it to us via the program's own options rather than the
+    // subcommand `options` object.
+    const commaSeparatedPathList: string | null =
+      parseCommaSeparatedListString(options) ??
+      parseCommaSeparatedListString(this.program.opts());
+
+    if (typeof commaSeparatedPathList !== 'string' && process.env.NODE_ENV === 'development') {
+      console.warn("[parseSourcesFilesOption] Failed to resolve a sources files string option from command options!");
+    }
     if (typeof commaSeparatedPathList !== 'string') {
       const defaultConfigSearchDirectories = this.defaultMouldSourcesConfigSearchDirectories();
       const defaultSourcesFilesPaths = defaultConfigSearchDirectories.map(
@@ -258,10 +262,6 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       )
       .argument("<template_name>", "Template name to use")
       .argument("<output_path>", "Output location")
-      .option(
-        "--ts, --template-sources <SOURCES>",
-        "comma-separated list of paths to folders to search for templates. overrides ~/mould/template-sources.json config.",
-      )
       .option(
         "-i, --input <KEYVALUEPAIRS...>",
         "space-separated value pairs input for mould (e.g. -i input_name_a=a input_name_b=foo)",

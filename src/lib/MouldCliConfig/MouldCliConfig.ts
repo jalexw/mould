@@ -1,8 +1,7 @@
 import type { MouldTemplateSourcesConfigFile } from "@/types/MouldTemplateSourcesConfigFile";
 import mouldTemplateSourcesJsonFileSchema from "@/schemas/mouldTemplateSourcesJsonFileSchema";
-import TemplateSourceDirectory from "@/lib/TemplateSourceDirectory";
+import type { ITemplateSourceDirectory } from "@/types/ITemplateSourceDirectory";
 import { loadTemplateSourceDirectories } from "./load-template-source-directories";
-import jsonSchemaUrl from "./templateSourcesJsonSchemaUrl";
 import mergeSourcesConfigs from "./merge-sources-configs";
 import { writeFileSync } from "fs";
 import minimalTemplateSourcesFile from "./minimal-template-sources-file";
@@ -52,7 +51,7 @@ export class MouldCliConfig {
     return this.sourcesConfig.templates
   }
 
-  public loadTemplateSourceDirectories(): readonly TemplateSourceDirectory[] {
+  public loadTemplateSourceDirectories(): readonly ITemplateSourceDirectory[] {
     return loadTemplateSourceDirectories(this.sourcesConfig);
   }
 

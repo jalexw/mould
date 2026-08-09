@@ -30,15 +30,15 @@ bunx @jalexw/mould --version
 # list the templates available from your configured template sources
 bunx @jalexw/mould list
 
-# list the directories that are searched for templates
-bunx @jalexw/mould sources
+# list the 'template-sources.json' files that are searched for templates
+bunx @jalexw/mould template-sources
 
 # run the initial configuration steps
 bunx @jalexw/mould setup
 
 # generate ./output from a template, passing inputs on the command line
-bunx @jalexw/mould use example-typescript-project ./output \
-  --template-sources ./test-fixtures/test-moulds \
+bunx @jalexw/mould --sources-files ./test-fixtures/test-template-sources.json \
+  use example-typescript-project ./output \
   --input org_scope=jalexw project_name=my_new_project_name
 ```
 
@@ -96,9 +96,20 @@ node ~/mould/dist/bin/mould.js --help
 
 ### Configuring your template source directories
 
-Create a file named `template-sources.json` inside the `mould` directory (e.g. `vim ~/mould/template-sources.json`). Inside the file, add a JSON-formatted list of paths to template source directories. For example:
+Create a file named `template-sources.json` inside the `mould` directory (e.g. `vim ~/mould/template-sources.json`). `templatesDirectories` lists directories whose *subdirectories* are each a template, while `templates` lists paths to individual templates:
 ```json
-["/Users/YourUsername/mould/templates"]
+{
+  "$schema": "https://jalexw.github.io/mould/openapi/template-sources.json",
+  "templatesDirectories": ["/Users/YourUsername/mould/templates"],
+  "templates": []
+}
+```
+
+`mould setup` scaffolds one of these for you, and `mould create-template-sources-file <path>` writes one anywhere you like.
+
+Every command reads `~/mould/template-sources.json` by default. Pass the program-level `--sources-files` flag to read a different set of sources files instead — it takes a comma-separated list of paths to `template-sources.json` files, and because it belongs to `mould` itself rather than to a subcommand, it goes *before* the subcommand name:
+```bash
+mould --sources-files ./test-fixtures/test-template-sources.json list
 ```
 
 ### Create a new template
@@ -129,26 +140,26 @@ mould use my-new-template ./output
 ### A more complicated template usage
 
 The following example covers the following:
-- Loading template from a one-off source directory using `--template-sources` flag. This overrides the `template-sources.json` configured. In this example, we're trying to use a template named `example-typescript-project` (found in the [`./test-fixtures/test-moulds` templates directory](./test-fixtures/test-moulds)).
+- Loading templates from a one-off sources file using the `--sources-files` flag. This overrides the default `template-sources.json` config. In this example, we're using a template named `example-typescript-project`, reached through [`./test-fixtures/test-template-sources.json`](./test-fixtures/test-template-sources.json), which points at the [`./test-fixtures/test-moulds` templates directory](./test-fixtures/test-moulds).
 - Passing custom inputs `org_scope=jalexw` and `project_name=my_new_project_name` after the `--input` flag, allowing custom variable substitution as defined by the [`.mouldconfig.json`](./test-fixtures/test-moulds/example-typescript-project/.mouldconfig.json) configuration for the mould.
 
 ```bash
-mould use example-typescript-project ./output \
-  --template-sources ./test-fixtures/test-moulds \
+mould --sources-files ./test-fixtures/test-template-sources.json \
+  use example-typescript-project ./output \
   --input org_scope=jalexw project_name=my_new_project_name
 ```
 
 Or to be prompted for inputs:
 ```bash
-mould use example-typescript-project ./output \
-  --template-sources ./test-fixtures/test-moulds \
+mould --sources-files ./test-fixtures/test-template-sources.json \
+  use example-typescript-project ./output \
   --interactive
 ```
 
 
-### Load configured list of paths to template source directories
+### Load the configured list of template sources files
 ```bash
-mould sources
+mould template-sources
 ```
 
 ## JSON schemas

@@ -15,8 +15,9 @@ export function collectAllSubdirectories(path: string): readonly string[] {
     if (child === '.DS_Store') {
       continue;
     }
-    if (isDirectory(child)) {
-       accumulator.push(join(path, child));
+    const childPath: string = join(path, child);
+    if (isDirectory(childPath)) {
+       accumulator.push(childPath);
     } else {
       continue;
     }
