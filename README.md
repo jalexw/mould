@@ -33,6 +33,9 @@ bunx @jalexw/mould list
 # list the 'template-sources.json' files that are searched for templates
 bunx @jalexw/mould template-sources
 
+# list the inputs a template collects, as declared in its '.mouldconfig.json'
+bunx @jalexw/mould inputs example-typescript-project
+
 # run the initial configuration steps
 bunx @jalexw/mould setup
 
@@ -155,6 +158,31 @@ Use the simple `my-new-template` mould template you created above to generate a 
 # creates a folder named ./output with a file.txt within and "Example File Content"
 mould use my-new-template ./output
 ```
+
+### Find out what inputs a template takes
+
+Before running `mould use`, `mould inputs <template_name>` prints the inputs declared in that
+template's [`.mouldconfig.json`](#json-schemas) — the `id` of each one is the name you pass to
+`--input`:
+```bash
+mould --sources-files ./test-fixtures/test-template-sources.json inputs example-typescript-project
+```
+```
+┌───┬──────────────┬──────────────┬────────────────────────────────────────────────────────┬──────────┬──────┐
+│   │ id           │ label        │ description                                            │ required │ type │
+├───┼──────────────┼──────────────┼────────────────────────────────────────────────────────┼──────────┼──────┤
+│ 0 │ project_name │ Project Name │ Package name for 'name' field of new package.json file │ true     │ text │
+│ 1 │ org_scope    │ Org Scope    │ Scope for 'name' field of new package.json file        │ true     │ text │
+└───┴──────────────┴──────────────┴────────────────────────────────────────────────────────┴──────────┴──────┘
+```
+
+Pass `--json` to get the raw input definitions instead, which is easier to feed into another tool:
+```bash
+mould inputs example-typescript-project --json
+```
+
+A template with no `.mouldconfig.json`, or one whose config declares no `inputs`, takes no inputs —
+`mould inputs` says so, and `--json` prints an empty array.
 
 ### A more complicated template usage
 
