@@ -44,15 +44,24 @@ the directory those paths assume.
 
 ### 2. Discover the template's inputs
 
-`mould list` prints each template's directory `path`; read the config there:
+`mould inputs <template_name>` prints the inputs declared in that template's
+`.mouldconfig.json`, without having to find the file first:
+
+```bash
+mould inputs example-typescript-project          # table of id/label/description/required/type
+mould inputs example-typescript-project --json   # the raw input definitions
+```
+
+Each entry has an `id` — that is the key you pass on the command line. A
+template with no `.mouldconfig.json`, or with `"inputs": []`, needs no values:
+`mould inputs` says the template takes none, and `--json` prints `[]`.
+
+The command is also aliased `template-inputs` and `describe`. To read the config
+directly instead, `mould list` prints each template's directory `path`:
 
 ```bash
 cat <path-from-mould-list>/.mouldconfig.json
 ```
-
-Each entry in `inputs` has an `id` — that is the key you pass on the command
-line. A template with no `.mouldconfig.json`, or with `"inputs": []`, needs no
-values.
 
 ### 3. Generate
 

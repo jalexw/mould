@@ -379,6 +379,127 @@ describe("MOULD_TEMPLATE_SOURCES", () => {
   });
 });
 
+describe("inputs", () => {
+  /**
+   * The command reports through `console.log` (JSON and the 'no inputs'
+   * message) and `console.table` (the human-readable listing), so both are
+   * captured. The missing-template path is deliberately untested here: it ends
+   * in `process.exit`, which would take the test runner down with it.
+   */
+  async function captureInputsCommand(
+    argv: readonly string[],
+  ): Promise<{ logged: readonly string[]; tabled: readonly unknown[] }> {
+    const logged: string[] = [];
+    const tabled: unknown[] = [];
+    const originalLog = console.log;
+    const originalTable = console.table;
+    console.log = (...args: unknown[]): void => {
+      logged.push(args.map((arg) => String(arg)).join(" "));
+    };
+    console.table = (data: unknown): void => {
+      tabled.push(data);
+    };
+    try {
+      await runMouldCommand(
+        ["--sources-files", testSourcesFilePath, ...argv],
+        DEBUG,
+      );
+    } finally {
+      console.log = originalLog;
+      console.table = originalTable;
+    }
+    return { logged, tabled };
+  }
+
+  test("tabulates the inputs declared by a template", async () => {
+    const { tabled } = await captureInputsCommand([
+      "inputs",
+      "interactive-test-mould",
+    ]);
+
+    expect(tabled).toEqual([
+      [
+        {
+          id: "user_name",
+          label: "User Name",
+          description: "Your name to be included in the greeting",
+          required: true,
+          type: "text",
+        },
+        {
+          id: "favorite_color",
+          label: "Favorite Color",
+          description: "Your favorite color",
+          required: false,
+          type: "text",
+        },
+      ],
+    ]);
+  });
+
+  test("prints the raw input definitions with --json", async () => {
+    const { logged } = await captureInputsCommand([
+      "inputs",
+      "example-typescript-project",
+      "--json",
+    ]);
+
+    expect(logged.length).toEqual(1);
+    expect(JSON.parse(logged[0] as string)).toEqual([
+      {
+        id: "project_name",
+        label: "Project Name",
+        description: "Package name for 'name' field of new package.json file",
+        required: true,
+        type: "text",
+      },
+      {
+        id: "org_scope",
+        label: "Org Scope",
+        description: "Scope for 'name' field of new package.json file",
+        required: true,
+        type: "text",
+      },
+    ]);
+  });
+
+  test("says so when a template declares no inputs", async () => {
+    const { logged, tabled } = await captureInputsCommand([
+      "inputs",
+      "minimal-mould",
+    ]);
+
+    expect(logged).toEqual([
+      "Template 'minimal-mould' does not take any inputs.",
+    ]);
+    expect(tabled).toEqual([]);
+  });
+
+  test("treats a template without a '.mouldconfig.json' as taking no inputs", async () => {
+    // 'hello-world-mould' carries no config file at all
+    const { logged } = await captureInputsCommand([
+      "inputs",
+      "hello-world-mould",
+      "--json",
+    ]);
+
+    expect(logged.length).toEqual(1);
+    expect(JSON.parse(logged[0] as string)).toEqual([]);
+  });
+
+  test("is reachable through its 'describe' and 'template-inputs' aliases", async () => {
+    for (const alias of ["describe", "template-inputs"]) {
+      const { logged } = await captureInputsCommand([
+        alias,
+        "minimal-mould",
+      ]);
+      expect(logged).toEqual([
+        "Template 'minimal-mould' does not take any inputs.",
+      ]);
+    }
+  });
+});
+
 describe("create-minimal-template", () => {
   // The 'minimal-mould' fixture is exactly what the scaffolder should emit
   const minimalMouldFixture: string = join(mockTestMouldsPath, "minimal-mould");

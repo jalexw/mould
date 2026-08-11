@@ -558,6 +558,76 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       });
   }
 
+  private addListTemplateInputsCommand(): void {
+    const inputsCommand = this.program
+      .command("inputs")
+      .alias("template-inputs")
+      .alias("describe")
+      .description(
+        "📝 List the inputs a template collects, as declared in its '.mouldconfig.json'",
+      )
+      .argument("<template_name>", "Template name to describe the inputs of")
+      .option(
+        "--json",
+        "print the raw input definitions as JSON instead of a table",
+      );
+
+    inputsCommand.action(
+      async (template_name: string, opts: unknown): Promise<void> => {
+        if (typeof template_name !== "string" || !template_name) {
+          return inputsCommand.help();
+        }
+
+        const asJson: boolean =
+          typeof opts === "object" && !!opts && "json" in opts && opts.json === true;
+
+        const templateSources: readonly ITemplateSourceDirectory[] =
+          this.parseAndMergeSourcesFilesBasedOnCliOption(
+            opts,
+          ).loadTemplateSourceDirectories();
+
+        let template: ITemplate;
+        try {
+          template = await searchForTemplate({
+            templateSources,
+            searchCriteria: { name: template_name },
+          });
+        } catch (e: unknown) {
+          console.error("Failed to load template to describe: ", e);
+          process.exit(1);
+        }
+
+        // A template without a '.mouldconfig.json' collects nothing, which is
+        // the same answer as a config that declares an empty 'inputs' list.
+        let config: ITemplateConfig | undefined = undefined;
+        if (template.hasConfig) {
+          config = await template.loadConfig();
+        }
+        const inputs: readonly MouldInputItemDefinition[] = config?.inputs ?? [];
+
+        if (asJson) {
+          console.log(JSON.stringify(inputs, null, 2));
+          return;
+        }
+
+        if (inputs.length === 0) {
+          console.log(`Template '${template.name}' does not take any inputs.`);
+          return;
+        }
+
+        console.table(
+          inputs.map((input: MouldInputItemDefinition) => ({
+            id: input.id,
+            label: input.label,
+            description: input.description ?? "",
+            required: input.required,
+            type: input.type,
+          })),
+        );
+      },
+    );
+  }
+
   private addVersionCommand(): void {
     this.program
       .command("version")
@@ -574,6 +644,7 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
     this.addCreateMinimalTemplateCommand();
     this.addCreateMinimalTemplateSourcesFileCommand();
     this.addListTemplatesCommand();
+    this.addListTemplateInputsCommand();
     this.addListTemplateSourcesConfigFilesCommand();
   }
 

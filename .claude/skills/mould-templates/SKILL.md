@@ -173,6 +173,7 @@ These are the behaviours that cause almost every surprise:
 | Command | Purpose |
 | ------- | ------- |
 | `mould list` (alias `templates`) | Table of every available template name and path |
+| `mould inputs <name>` (aliases `template-inputs`, `describe`) | Table of the inputs a template declares; `--json` for the raw definitions |
 | `mould use <name> <output>` (aliases `apply`, `use-template`, `apply-template`) | Generate a directory from a template |
 | `mould template-sources` | Print the sources files that will be read |
 | `mould setup` (alias `init`) | Write a minimal `template-sources.json` to `~/mould` and the package dir |
