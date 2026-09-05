@@ -16,6 +16,7 @@ import {
   readFileSync,
   writeFileSync
 } from "fs";
+import { spawnSync } from "child_process";
 
 const projectRootDir: string = normalize(join(__dirname, "..", ".."));
 const testRunId: string = crypto.randomUUID();
@@ -231,10 +232,45 @@ function nestedConfigMouldValidator(output_path: string): boolean {
   );
 }
 
+/**
+ * Run a command inside a fixture directory, failing loudly (with its output)
+ * if it does not exit cleanly.
+ */
+function runInFixture(fixturePath: string, command: string, args: readonly string[]): void {
+  const result = spawnSync(command, [...args], {
+    cwd: fixturePath,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `'${[command, ...args].join(" ")}' failed in '${fixturePath}' with exit code ${result.status}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+}
+
+/**
+ * The 'ignore-patterns-mould' fixture is a real (tiny) TypeScript app. 'dist/'
+ * and 'node_modules/' stay gitignored, so they are produced here — by actually
+ * installing and building the app — before the template is used. Their
+ * existence is asserted so the later "not exported" check cannot pass vacuously.
+ */
+function prepareIgnorePatternsMould(fixturePath: string): void {
+  runInFixture(fixturePath, "bun", ["install", "--no-save"]);
+  runInFixture(fixturePath, "bun", ["run", "build"]);
+
+  for (const generated of ["node_modules", "dist", join("dist", "index.js")]) {
+    expect(existsSync(join(fixturePath, generated))).toBeTrue();
+  }
+}
+
 function ignorePatternsMouldValidator(output_path: string): boolean {
-  // The fixture is a small app that ships with stale build output ('dist/'),
-  // installed dependencies ('node_modules/') and a stray log file, all of which
-  // its '.mouldconfig.json' lists under 'ignorePatterns'. None of them may reach
+  // After install + build the fixture holds build output ('dist/'), installed
+  // dependencies ('node_modules/') and a stray log file, all of which its
+  // '.mouldconfig.json' lists under 'ignorePatterns'. None of them may reach
   // the scaffolded app — while the app's real sources must.
   const exported: readonly string[] = [
     ...listExportedPathsRecursively(output_path),
@@ -245,6 +281,7 @@ function ignorePatternsMouldValidator(output_path: string): boolean {
     "package.json",
     "src",
     "src/index.ts",
+    "tsconfig.json",
   ];
 
   const unexpected: readonly string[] = exported.filter(
@@ -286,6 +323,12 @@ function ignorePatternsMouldValidator(output_path: string): boolean {
 
   return true;
 }
+
+// Steps to run against a fixture directory *before* it is used, e.g. to
+// generate files that are deliberately not committed
+const prepares: Record<string, (fixturePath: string) => void> = {
+  "ignore-patterns-mould": prepareIgnorePatternsMould,
+};
 
 // Checks for a given mould
 const checks: Record<
@@ -602,6 +645,8 @@ describe("Test Moulds", () => {
 
   testMoulds.forEach((testMould: string): void => {
     const testTemplateName: string = testMould;
+    // Installing and building a fixture takes longer than the default timeout
+    const timeoutMs: number = prepares[testTemplateName] ? 120_000 : 5_000;
     test(`can use template '${testTemplateName}'`, async () => {
       const output_path: string = join(thisRunTmpPath, testMould);
       expect(existsSync(output_path)).toBeFalsy();
@@ -614,6 +659,10 @@ describe("Test Moulds", () => {
         testTemplateName,
         output_path,
       ];
+
+      if (prepares[testTemplateName]) {
+        prepares[testTemplateName](join(mockTestMouldsPath, testTemplateName));
+      }
 
       // Pass pre-saved sample inputs if some are set
       if (!!sampleInputs[testTemplateName]) {
@@ -658,6 +707,6 @@ describe("Test Moulds", () => {
         const isValid: boolean = await checkFn(output_path);
         expect(isValid).toBeTrue();
       }
-    });
+    }, timeoutMs);
   });
 });

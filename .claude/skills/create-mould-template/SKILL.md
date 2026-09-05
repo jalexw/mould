@@ -175,7 +175,11 @@ So when adding a fixture template:
 2. If it declares inputs, add an entry keyed by the template name to the
    `sampleInputs` map — otherwise the generated test fails on missing inputs.
 3. To assert on the generated output, add a validator to the `checks` map.
-4. Run `bun run test` (tests plus `rm -rf ./tmp`).
+4. If the fixture needs files that are not committed (e.g. a `dist/` or
+   `node_modules/` that `.gitignore` excludes), add a step to the `prepares`
+   map — it runs against the fixture directory before `mould use`, the way
+   `ignore-patterns-mould` runs `bun install --no-save` and `bun run build`.
+5. Run `bun run test` (tests plus `rm -rf ./tmp`).
 
 Fixture configs may point `$schema` at `../../../dist/openapi/mouldconfig.json`
 to validate against the locally built schema instead of the published one.

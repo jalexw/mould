@@ -20,9 +20,3 @@ output/
 **/.DS_Store
 
 .npmrc
-
-# The 'ignore-patterns-mould' test fixture deliberately ships a dist/ and a
-# node_modules/ so the suite can prove 'ignorePatterns' keeps them out of the
-# scaffolded output. Re-include them here so they are tracked.
-!test-fixtures/test-moulds/ignore-patterns-mould/dist/
-!test-fixtures/test-moulds/ignore-patterns-mould/node_modules/

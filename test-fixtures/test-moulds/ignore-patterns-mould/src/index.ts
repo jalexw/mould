@@ -1,3 +1,3 @@
-import leftPad from "left-pad";
+export const appName: string = "XxX_AppName_XxX";
 
-console.log(leftPad("XxX_AppName_XxX", 24));
+console.log(`Hello from ${appName}!`);

@@ -221,7 +221,7 @@ Anything in a template directory is copied by default, so a template that is its
 - `**` matches any number of directories: `**/fixtures/`, `src/**/*.snap`, `docs/**`.
 - Negation (`!pattern`) is not supported.
 
-`.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped, whether or not they are listed. See the [`ignore-patterns-mould`](./test-fixtures/test-moulds/ignore-patterns-mould) fixture for a template that ships a `dist/` and a `node_modules/` that never reach the output.
+`.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped, whether or not they are listed. See the [`ignore-patterns-mould`](./test-fixtures/test-moulds/ignore-patterns-mould) fixture: a small TypeScript app whose test installs and builds it first, then asserts that the resulting `dist/` and `node_modules/` never reach the output.
 
 ### Load the configured list of template sources files
 ```bash
