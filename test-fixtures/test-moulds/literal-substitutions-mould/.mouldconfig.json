@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [
+    { "id": "name", "label": "Name", "required": true, "type": "text" },
+    { "id": "version", "label": "Version", "required": true, "type": "text" }
+  ],
+  "substitutions": [
+    { "find": "xxx.name.xxx", "input": "name" },
+    { "find": "v1\\.0", "input": "version", "regex": true }
+  ]
+}

@@ -1,21 +1,26 @@
 ---
 name: mould-templates
-description: How `mould` templates work end to end — how `template-sources.json` resolves template directories, what `.mouldconfig.json` declares (inputs, substitutions and ignorePatterns), which files get copied or skipped, and how substitutions are applied. Use to understand or debug mould's model before authoring or running a template, or when a template resolves to the wrong thing, a placeholder is left unreplaced, or a file unexpectedly appears/disappears in the output.
+description: How `mould` templates work end to end — how `template-sources.json` resolves template directories, what `.mouldconfig.json` declares (inputs with types and defaults, substitutions, ignorePatterns, renames, conditionalPaths), how `mould:if` marker blocks work, which files get copied or skipped, and how substitutions are applied. Use to understand or debug mould's model before authoring or running a template, or when a template resolves to the wrong thing, a placeholder is left unreplaced, or a file unexpectedly appears/disappears in the output.
 ---
 
 # How `mould` templates work
 
 `mould` copies a template directory to a new output directory, rewriting file
-*contents* on the way and leaving out anything matched by the template's
-`ignorePatterns`. That is the entire feature set — there is no scripting, no
-input-dependent file inclusion, and no post-generation hooks.
+*contents* on the way, leaving out anything matched by the template's
+`ignorePatterns` or by a `conditionalPaths` entry whose condition is false,
+dropping `mould:if` blocks whose condition is false, and renaming entries listed
+under `renames`. There is no scripting, no loops, and no post-generation hooks.
 
 ```
 template-sources.json  ──▶  source directories  ──▶  a template directory
-                                                            │
+        (or a directory path passed straight to `mould use`)   │
                                         read .mouldconfig.json (root only)
                                                             │
-                          walk files ──▶ apply substitutions ──▶ write output dir
+                                  resolve inputs (defaults, validation)
+                                                            │
+   walk files ──▶ prune ignorePatterns + inactive conditionalPaths
+             ──▶ strip mould:if blocks ──▶ apply substitutions
+             ──▶ write output dir (renames applied, file modes kept)
 ```
 
 ## 1. Sources: how mould finds templates
@@ -98,8 +103,10 @@ Optionally, its root holds a `.mouldconfig.json`:
       "type": "text"
     }
   ],
-  "substitutions": [["XxX_ProjectName_XxX", "project_name"]],
-  "ignorePatterns": ["dist/", "*.log"]
+  "substitutions": [{ "find": "xxx_project_name_xxx", "input": "project_name" }],
+  "ignorePatterns": ["dist/", "*.log"],
+  "renames": { "_gitignore": ".gitignore" },
+  "conditionalPaths": [{ "when": "deployment == vercel", "paths": ["/vercel.json"] }]
 }
 ```
 
@@ -111,23 +118,78 @@ Each entry declares a value to collect at generation time:
 
 | Field | Required | Notes |
 | ----- | -------- | ----- |
-| `id` | yes | The key used on the command line (`--input <id>=<value>`) and referenced by substitutions |
+| `id` | yes | The key used on the command line (`--input <id>=<value>`) and referenced by substitutions and conditions; letters, digits, `_`, not starting with a digit |
 | `label` | yes | Shown as the interactive prompt |
-| `required` | yes | Only enforced in `--interactive` mode (see the gotcha below) |
-| `type` | yes | `"text"` is the only supported value today |
+| `required` | yes | A required input with no value (and no `default`) fails the run |
+| `type` | yes | `"text"`, `"select"` or `"boolean"` |
 | `description` | no | Shown in parentheses after the label when prompting |
+| `default` | no | Used when the input is not supplied (`string` for text/select, `boolean` for boolean) |
+| `pattern` | no | `text` only — a regular expression the value must match (anchor it yourself) |
+| `options` | select | Non-empty list of allowed values; `default` must be one of them |
+
+Boolean values are accepted as `true/false`, `yes/no`, `y/n`, `1/0` and are
+substituted as the strings `true` / `false`. Optional inputs no longer need to
+be passed non-interactively: they take their `default`, else `""`.
 
 The config schema is `.strict()`: any other field, or a missing required one,
 fails the run.
 
 ### `substitutions`
 
-A list of `[pattern, input_id]` pairs. `substitutions` must be non-empty when
-present — omit the key entirely rather than passing `[]`.
+A non-empty list (omit the key rather than passing `[]`) whose entries are either:
 
-For each pair, mould replaces every occurrence of `pattern` in every copied
-file's text with the value supplied for `input_id`. Pairs are applied in order,
-so a later substitution can rewrite text a previous one inserted.
+- `{ "find": "<text>", "input": "<input_id>", "regex": false }` — `find` is
+  matched **literally** (recommended); set `"regex": true` to compile it as a
+  regular expression instead.
+- `["<regex>", "<input_id>"]` — the legacy tuple form; the first element is
+  always a regular expression.
+
+For each entry, mould replaces every occurrence in every copied text file with
+the value supplied for `input_id`, inserted verbatim (`$&` and friends are never
+expanded). Entries are applied in order, so a later substitution can rewrite
+text a previous one inserted. An input that was supplied as an empty string does
+substitute; an input with no value at all leaves the text untouched.
+
+### `renames`
+
+`{ "<template path>": "<output path>" }`, both `/`-separated and relative to the
+template root. A key naming a directory renames its whole subtree. Use it for
+files that cannot be stored under their final name — the idiom is
+`"_gitignore": ".gitignore"`, because npm renames a packed `.gitignore` to
+`.npmignore` and applies nested `.gitignore` rules when packing. Two entries
+resolving to one output path fail the run; a key that matches nothing is only a
+warning (the file may have been pruned by `conditionalPaths`).
+
+### `conditionalPaths`
+
+`[{ "when": "<condition>", "paths": ["…"] }]`. `paths` use the `ignorePatterns`
+grammar below; when `when` is false those entries are not copied (directories
+are pruned whole). Conditions are validated when the config is loaded.
+
+### Conditions (`when` and `mould:if`)
+
+Exactly three shapes, no `&&`/`||`/parentheses:
+
+| Condition | True when |
+| --- | --- |
+| `flag` | the input's value is neither `""` nor `false` |
+| `deployment == vercel` | the value equals `vercel` (quote values with spaces: `name == "hello world"`) |
+| `deployment != none` | the value differs from `none` |
+
+Every id must be a declared input; a `select` literal must be one of its
+`options`; a `boolean` may only be compared to `true`/`false`.
+
+### Conditional blocks inside files
+
+A marker **line** is a comment leader, the directive, and an optional trailer:
+`# mould:if deployment == vercel`, `// mould:else`, `{/* mould:endif */}`,
+`<!-- mould:if with_docs -->`. Recognised leaders: `#`, `//`, `/*`, `{/*`,
+`<!--`, `--`, `;`, `*`. Marker lines are always removed; the lines of an
+inactive branch are removed; nothing else changes (line endings are kept).
+Blocks cannot nest; `else`/`endif` without an `if`, a second `else`, or an
+unclosed block fails the run before anything is written. JSON has no comments,
+so use `conditionalPaths` or variant files there. Prose that merely mentions
+`mould:if` mid-line is left alone — only whole marker lines count.
 
 ### `ignorePatterns`
 
@@ -167,21 +229,20 @@ is neither read nor copied, so it cannot be used to configure a subdirectory.
 
 ## 4. How substitutions are applied — the sharp edges
 
-These are the behaviours that cause almost every surprise:
-
-- **Patterns are regular expressions, not literals.** Each pattern becomes
-  `new RegExp(pattern, "g")`. A pattern of `a.c` also rewrites `abc`. Escape
-  regex metacharacters (`. * + ? ( ) [ ] { } | ^ $ \ /`) or, better, choose
-  placeholders made only of letters, digits, and underscores.
-- **Only file contents are rewritten — never file or directory names.** A file
-  named `PLACEHOLDER___NAME__.txt` keeps that literal name in the output. Rename
-  generated files afterwards if you need them templated.
-- **A missing or empty value silently skips that substitution**, leaving the raw
-  placeholder in the output. Empty string counts as missing.
-- **Files are read and written as UTF-8.** Binary content (images, archives,
-  fonts) is corrupted by the round-trip — keep it out of templates.
+- **Tuple patterns are regular expressions; object `find`s are literal** unless
+  `"regex": true`. Prefer the object form — no escaping of `.` or `$`.
+- **Only file contents are rewritten — never file or directory names.** Use
+  `renames` for the (few) names that must differ between template and output.
+- **A missing input leaves the placeholder in the output**; an input supplied
+  as `""` (or an optional input that defaulted to `""`) substitutes an empty
+  string.
+- **Values are inserted verbatim.** `$&`, `$1` etc. in a value are not expanded.
+- **Binary files are copied byte-for-byte** (detected by a NUL byte in the first
+  8000 bytes) and never substituted. Text files are read and written as UTF-8.
+- **File permission bits are preserved**, so executable scripts stay executable.
+  Commit such fixtures with `git update-index --chmod=+x`.
 - **Nothing scopes a substitution to a file.** A pattern applies to every copied
-  file, so avoid patterns that could appear incidentally in prose or code.
+  text file, so avoid patterns that could appear incidentally in prose or code.
 
 ## 5. Output rules
 
@@ -197,12 +258,20 @@ These are the behaviours that cause almost every surprise:
 | ------- | ------- |
 | `mould list` (alias `templates`) | Table of every available template name and path |
 | `mould inputs <name>` (aliases `template-inputs`, `describe`) | Table of the inputs a template declares; `--json` for the raw definitions |
-| `mould use <name> <output>` (aliases `apply`, `use-template`, `apply-template`) | Generate a directory from a template |
+| `mould use <name-or-path> <output>` (aliases `apply`, `use-template`, `apply-template`) | Generate a directory from a template, by configured name or by directory path |
 | `mould template-sources` | Print the sources files that will be read |
 | `mould setup` (alias `init`) | Write a minimal `template-sources.json` to `~/mould` and the package dir |
 | `mould create-minimal-template <path>` | Scaffold a template directory containing only `.mouldconfig.json` |
 | `mould create-template-sources-file <path>` | Write a minimal `template-sources.json` anywhere |
 | `mould version` / `mould --version` | Print the build version |
+
+## Programmatic use
+
+`import { applyTemplate } from "@jalexw/mould"` renders a template by directory
+path without prompting or `template-sources.json`, and rejects with a
+`MouldError` subclass (`OutputPathExistsError`, `MissingRequiredInputError`,
+`InvalidInputValueError`, `ConditionSyntaxError`, `RenameConflictError`, …)
+instead of exiting. See the README section "Use `mould` from JavaScript".
 
 Related skills: `install-mould` to get the CLI, `create-mould-template` to
 author one, `use-mould-template` to run one.

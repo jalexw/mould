@@ -61,8 +61,15 @@ whatever the config's `ignorePatterns` excludes (step 5).
 
 Keep out of the template:
 
-- Binary assets — files are round-tripped as UTF-8 and will be corrupted.
 - Real secrets. Templates are copied verbatim; there is no redaction step.
+- A `.gitignore` meant for the *generated* project, if the template will be
+  published to npm — store it as `_gitignore` and map it with `renames`
+  (step 5). npm renames a packed `.gitignore` to `.npmignore` and applies its
+  rules while packing.
+
+Binary assets (images, fonts) are fine: files containing a NUL byte are copied
+byte-for-byte. Executable scripts keep their mode — commit them with
+`git update-index --chmod=+x` so a fresh clone has the bit set.
 
 Build output, lockfile-adjacent junk and other generated files are best kept
 out too — but when the template doubles as a working app (so `dist/` or
@@ -75,22 +82,44 @@ Put a distinctive placeholder everywhere a value should be injected:
 
 ```jsonc
 // package.json inside the template
-{ "name": "@YyY_OrgScope_YyY/XxX_ProjectName_XxX" }
+{ "name": "@yyy_org_scope_yyy/xxx_project_name_xxx" }
 ```
 
 Placeholder rules that matter:
 
-- **Patterns are compiled as regexes** (`new RegExp(pattern, "g")`). Stick to
-  letters, digits, and underscores — `XxX_ProjectName_XxX`, `__PROJECT_NAME__` —
-  or escape every metacharacter. A pattern like `v1.0` would also match `v100`.
-- **Make them unmistakable.** A pattern applies to every copied file, so a bare
-  word like `name` will shred unrelated text.
-- **Filenames are never rewritten** — only file contents. A file called
-  `__NAME__.ts` is emitted with that literal name. Do not try to template paths.
-- `{{DOUBLE_BRACE}}` style works too (`{{` is literal in JS regex) and is used by
-  the `interactive-test-mould` fixture — but underscore-only patterns are safer.
+- **Object-form substitutions match literally**, so any distinctive text works
+  as a placeholder — including a real default value such as
+  `https://auth.example.com`, which keeps the template runnable as-is. Tuple
+  substitutions are regexes; avoid them unless you need one.
+- **Make them unmistakable.** A placeholder applies to every copied text file,
+  so a bare word like `name` will shred unrelated text.
+- **Keep them valid where they sit.** A lowercase token such as
+  `xxx_project_name_xxx` is a legal npm package name, dotenv value and
+  identifier, so the template still installs and type-checks in an IDE.
+- **Filenames are never rewritten** — only file contents. Use `renames` for the
+  few names that must differ.
 
-### 5. Declare inputs and substitutions
+For input-dependent *sections*, wrap lines in marker comments of the host
+language; the file stays valid for editors and linters:
+
+```yaml
+  # mould:if deployment == vercel
+  publish-to-vercel:
+    needs: build
+  # mould:endif
+```
+
+```tsx
+{/* mould:if with_analytics */}
+<Analytics />
+{/* mould:else */}
+{/* mould:endif */}
+```
+
+Whole files or directories that depend on an input go under `conditionalPaths`
+instead (JSON files have no comments, so this is the only option for them).
+
+### 5. Declare inputs, substitutions, renames and conditions
 
 ```json
 {
@@ -101,29 +130,43 @@ Placeholder rules that matter:
       "label": "Project Name",
       "description": "Package name for the generated package.json",
       "required": true,
-      "type": "text"
+      "type": "text",
+      "pattern": "^[a-z0-9-]+$"
     },
     {
-      "id": "org_scope",
-      "label": "Org Scope",
-      "description": "npm scope for the generated package.json",
-      "required": true,
-      "type": "text"
+      "id": "deployment",
+      "label": "Deployment strategy",
+      "required": false,
+      "type": "select",
+      "options": ["vercel", "none"],
+      "default": "none"
+    },
+    {
+      "id": "with_analytics",
+      "label": "Include analytics?",
+      "required": false,
+      "type": "boolean",
+      "default": false
     }
   ],
   "substitutions": [
-    ["XxX_ProjectName_XxX", "project_name"],
-    ["YyY_OrgScope_YyY", "org_scope"]
+    { "find": "xxx_project_name_xxx", "input": "project_name" }
+  ],
+  "renames": { "_gitignore": ".gitignore" },
+  "conditionalPaths": [
+    { "when": "deployment == vercel", "paths": ["/vercel.json"] }
   ],
   "ignorePatterns": ["dist/", "coverage/", "*.log"]
 }
 ```
 
-- Every input needs `id`, `label`, `required`, and `type` (`"text"` is the only
-  type today); `description` is optional. The schema is strict — an extra or
-  misspelled field fails the run, not just that input.
-- Each substitution is `[pattern, input_id]` — the **second** element is the
-  input `id`, not a value. Pairs apply in listed order.
+- Every input needs `id`, `label`, `required`, and `type` (`text`, `select` or
+  `boolean`); `description`, `default` and (for `text`) `pattern` are optional;
+  `select` needs `options`. The schema is strict — an extra or misspelled field
+  fails the run.
+- Prefer object substitutions `{ "find", "input", "regex"? }` — `find` is
+  literal unless `regex` is `true`. The tuple form `[regex, input_id]` still
+  works. Entries apply in listed order.
 - Referencing an `input_id` that no input declares is not an error, but nothing
   will prompt for it — the substitution only fires if a caller happens to pass
   `--input <id>=<value>`, and otherwise leaves the placeholder in the output.
@@ -131,6 +174,11 @@ Placeholder rules that matter:
 - Omit `substitutions` entirely for a verbatim template. An empty array is
   rejected (the list must be non-empty when present).
 - `inputs` may be `[]` for a template that collects nothing.
+- `renames` maps template-relative paths to output-relative paths; a directory
+  key renames its subtree. Colliding targets fail; an unmatched key warns.
+- `conditionalPaths[].when` and every `mould:if` expression must reference a
+  declared input (`id`, `id == value`, `id != value`); a `select` literal must
+  be one of its options. Bad expressions fail when the config loads.
 - `ignorePatterns` lists `.gitignore`-style patterns for files and directories
   that must not be copied: `dist/` (directories only, any depth), `*.log` (by
   name, any depth), `/coverage` or `src/generated/` (relative to the template
@@ -148,16 +196,19 @@ Never ship a template without generating from it once.
 mould list      # the new name should appear
 
 mould use my-new-template /tmp/mould-check \
-  --input project_name=demo org_scope=acme
+  --input project_name=demo deployment=vercel with_analytics=yes
+# or straight from the directory, without registering it:
+mould use ./path/to/my-new-template /tmp/mould-check --input project_name=demo
 
-find /tmp/mould-check -type f -exec grep -l 'XxX_\|__PROJECT' {} +   # should print nothing
+grep -rn 'xxx_\|mould:' /tmp/mould-check   # should print nothing: no placeholders, no marker lines
 rm -rf /tmp/mould-check
 ```
 
-Check that: every placeholder is gone, no `.mouldconfig.json` leaked into the
-output, nothing listed in `ignorePatterns` made it through, the tree shape is
-right, and the generated project actually builds/installs if that is the point
-of it.
+Check that: every placeholder and marker line is gone, no `.mouldconfig.json`
+leaked into the output, nothing listed in `ignorePatterns` made it through,
+renamed files carry their output names, conditional files appear only for the
+inputs that select them (render once per branch), the tree shape is right, and
+the generated project actually builds/installs if that is the point of it.
 
 The output directory must not already exist, and its parent must — re-running
 into the same path fails until you delete it.
@@ -179,7 +230,13 @@ So when adding a fixture template:
    `node_modules/` that `.gitignore` excludes), add a step to the `prepares`
    map — it runs against the fixture directory before `mould use`, the way
    `ignore-patterns-mould` runs `bun install --no-save` and `bun run build`.
-5. Run `bun run test` (tests plus `rm -rf ./tmp`).
+5. Templates that must *fail* (malformed markers, rename collisions) go under
+   `test-fixtures/invalid-moulds/` instead, which the auto-runner ignores, and
+   are asserted in `src/__test__/applyTemplate.test.ts`.
+6. A fixture file that must stay executable needs
+   `git update-index --chmod=+x <file>` — a plain `chmod` is not enough on a
+   fresh clone.
+7. Run `bun run test` (tests plus `rm -rf ./tmp`).
 
 Fixture configs may point `$schema` at `../../../dist/openapi/mouldconfig.json`
 to validate against the locally built schema instead of the published one.
@@ -189,8 +246,10 @@ to validate against the locally built schema instead of the published one.
 - [ ] Directory name is the template name users will type
 - [ ] Template registered under a `templatesDirectories` (or `templates`) entry, absolute path
 - [ ] No name collision with an existing template — the **first** match across sources wins
-- [ ] Placeholders are regex-safe and distinctive
-- [ ] Every substitution's `input_id` matches a declared input `id`
-- [ ] No binaries, no `node_modules`, no secrets
+- [ ] Placeholders are distinctive and valid where they sit (object-form substitutions are literal)
+- [ ] Every substitution's `input` matches a declared input `id`
+- [ ] Every `when` / `mould:if` references a declared input; blocks are closed and not nested
+- [ ] Any `.gitignore` for the output is stored as `_gitignore` and listed under `renames`
+- [ ] No `node_modules`, no secrets
 - [ ] Build output and other generated files either absent or listed under `ignorePatterns`
 - [ ] Generated once into a throwaway directory and inspected

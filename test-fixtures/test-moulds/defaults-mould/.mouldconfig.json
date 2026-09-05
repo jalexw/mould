@@ -1,0 +1,11 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [
+    { "id": "greeting", "label": "Greeting", "required": false, "type": "text", "default": "hello" },
+    { "id": "verbose", "label": "Verbose?", "required": false, "type": "boolean", "default": true }
+  ],
+  "substitutions": [
+    { "find": "xxx_greeting_xxx", "input": "greeting" },
+    { "find": "xxx_verbose_xxx", "input": "verbose" }
+  ]
+}

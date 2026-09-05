@@ -1,0 +1,1 @@
+{ "inputs": [ { "id": "flag", "label": "Flag", "required": false, "type": "boolean", "default": true }, { "id": "mode", "label": "Mode", "required": false, "type": "select", "options": ["a", "b"], "default": "a" } ] }

@@ -19,6 +19,8 @@ export class MouldTemplateConfig implements ITemplateConfig {
   private _inputs: readonly MouldInputItemDefinition[] | undefined;
   private _substitutions: TemplateSubstitutionList | undefined;
   private _ignorePatterns: readonly string[] | undefined;
+  private _renames: ITemplateConfig["renames"];
+  private _conditionalPaths: ITemplateConfig["conditionalPaths"];
 
   private constructor(opts: ITemplateConfigConstructorOpts) {
     const parsed = MouldTemplateConfig.safeParse(opts.data)
@@ -27,10 +29,12 @@ export class MouldTemplateConfig implements ITemplateConfig {
         cause: parsed.error
       });
     }
-    const { inputs, substitutions, ignorePatterns } = parsed.data;
+    const { inputs, substitutions, ignorePatterns, renames, conditionalPaths } = parsed.data;
     this._inputs = inputs;
     this._substitutions = substitutions;
     this._ignorePatterns = ignorePatterns;
+    this._renames = renames;
+    this._conditionalPaths = conditionalPaths;
   }
 
   public static get default(): MouldTemplateConfig {
@@ -49,6 +53,14 @@ export class MouldTemplateConfig implements ITemplateConfig {
 
   public get ignorePatterns(): readonly string[] | undefined {
     return this._ignorePatterns;
+  }
+
+  public get renames(): ITemplateConfig["renames"] {
+    return this._renames;
+  }
+
+  public get conditionalPaths(): ITemplateConfig["conditionalPaths"] {
+    return this._conditionalPaths;
   }
 
   private static safeParse(maybeConfig: unknown) {

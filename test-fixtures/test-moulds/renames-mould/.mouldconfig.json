@@ -1,0 +1,8 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [],
+  "renames": {
+    "_gitignore": ".gitignore",
+    "config/_npmrc": "config/.npmrc"
+  }
+}

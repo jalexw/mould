@@ -1,5 +1,6 @@
 // mould - index.ts
-// Exports the cli (./cli.ts), the `run` entrypoint used by ./bin/mould.ts, and types
+// Exports the cli (./cli.ts), the `run` entrypoint used by ./bin/mould.ts, the
+// programmatic API (`applyTemplate`), the error classes, and types
 
 import MouldCommandLineInterface from "./cli";
 import { dirname, join, normalize } from "path";
@@ -25,6 +26,50 @@ async function run(argv: readonly string[]): Promise<void> {
 
 export default run;
 
+// Programmatic API
+export {
+  applyTemplate,
+  loadTemplateConfig,
+  Template,
+} from "@/lib/Template";
+export type {
+  IApplyTemplateOptions,
+  IApplyTemplateResult,
+} from "@/lib/Template";
+export { resolveInputs, normalizeInputValue } from "@/lib/Inputs";
+export type {
+  ProvidedInputValues,
+  ResolvedInputValues,
+  PromptForInput,
+} from "@/lib/Inputs";
+export {
+  parseCondition,
+  evaluateCondition,
+  applyConditionalBlocks,
+} from "@/lib/Conditions";
+export type { Condition } from "@/lib/Conditions";
+export { templateConfigSchema } from "@/schemas/templateConfigSchema";
+
+// Errors
+export {
+  MouldError,
+  TemplateNotFoundError,
+  TemplateConfigError,
+  OutputPathExistsError,
+  OutputParentMissingError,
+  MissingRequiredInputError,
+  InvalidInputValueError,
+  ConditionSyntaxError,
+  RenameConflictError,
+} from "@/lib/errors";
+
 // Types
-export type { MouldInputItemDefinition } from "@/types/MouldInputItemDefinition";
-export type { TemplateSubstitutionList } from "@/types/TemplateSubstitutionList";
+export type { ITemplateConfig } from "@/types/ITemplateConfig";
+export type {
+  MouldInputItemDefinition,
+  MouldInputType,
+} from "@/types/MouldInputItemDefinition";
+export type {
+  TemplateSubstitutionList,
+  TemplateSubstitution,
+} from "@/types/TemplateSubstitutionList";

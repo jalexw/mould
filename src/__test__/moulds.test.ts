@@ -144,6 +144,21 @@ const sampleInputs: Record<string, Record<string, string>> = {
   "ignore-patterns-mould": {
     app_name: "ignore-patterns-app",
   },
+  "conditional-mould": {
+    deployment: "vercel",
+    with_docs: "yes",
+    slug: "my-slug",
+  },
+  "executable-mould": {
+    name: "exec-test",
+  },
+  "literal-substitutions-mould": {
+    name: "a$&b",
+    version: "v2.5",
+  },
+  "binary-mould": {
+    caption: "a pixel",
+  },
 };
 
 async function checkDidExampleTypeScriptProjectVariableSubstituteSuccess(
@@ -324,6 +339,132 @@ function ignorePatternsMouldValidator(output_path: string): boolean {
   return true;
 }
 
+function readOutput(output_path: string, ...segments: string[]): string {
+  return readFileSync(join(output_path, ...segments), { encoding: "utf-8" });
+}
+
+function conditionalMouldValidator(output_path: string): boolean {
+  // Rendered with deployment=vercel and with_docs=yes: the conditional path
+  // and directory are present, the active branches kept, and no marker line
+  // survives anywhere.
+  const exported: readonly string[] = [
+    ...listExportedPathsRecursively(output_path),
+  ].sort();
+  const expected: readonly string[] = [
+    "ci.yml",
+    "docs",
+    "docs/README.md",
+    "index.ts",
+    "notes.txt",
+    "vercel.json",
+  ];
+  if (JSON.stringify(exported) !== JSON.stringify(expected)) {
+    console.warn("Unexpected export for conditional-mould: ", exported);
+    return false;
+  }
+
+  const ci: string = readOutput(output_path, "ci.yml");
+  const notes: string = readOutput(output_path, "notes.txt");
+  const index: string = readOutput(output_path, "index.ts");
+  const docs: string = readOutput(output_path, "docs", "README.md");
+
+  const checks: readonly [string, boolean][] = [
+    ["ci.yml keeps the vercel job", ci.includes("publish-to-vercel:")],
+    ["notes.txt keeps the if-branch", notes.includes("Docs are included.")],
+    ["notes.txt drops the else-branch", !notes.includes("Docs are not included.")],
+    ["notes.txt keeps prose mentioning mould:if", notes.includes("mentions mould:if in prose")],
+    ["notes.txt substitutes the slug", notes.includes("Project: my-slug")],
+    ["index.ts keeps the != none branch", index.includes("xxx_deployment_placeholder")],
+    ["index.ts keeps the TSX-style block", index.includes("export const docs = true;")],
+    ["index.ts drops the TSX-style markers", !index.includes("{/*")],
+    ["docs/README.md substitutes the slug", docs.includes("# Docs for my-slug")],
+  ];
+  for (const [label, ok] of checks) {
+    if (!ok) {
+      console.warn(`conditional-mould: ${label} — failed`);
+      return false;
+    }
+  }
+
+  for (const file of ["ci.yml", "notes.txt", "index.ts"]) {
+    if (/mould:(if|else|endif)\b/.test(readOutput(output_path, file).replace("mentions mould:if in prose", ""))) {
+      console.warn(`conditional-mould: a marker line survived in ${file}`);
+      return false;
+    }
+  }
+  return true;
+}
+
+function renamesMouldValidator(output_path: string): boolean {
+  const exported: readonly string[] = [
+    ...listExportedPathsRecursively(output_path),
+  ].sort();
+  const expected: readonly string[] = [".gitignore", "config", "config/.npmrc", "keep.txt"];
+  if (JSON.stringify(exported) !== JSON.stringify(expected)) {
+    console.warn("Unexpected export for renames-mould: ", exported);
+    return false;
+  }
+  return (
+    readOutput(output_path, ".gitignore") === "node_modules/\n" &&
+    readOutput(output_path, "config", ".npmrc").startsWith("registry=")
+  );
+}
+
+function executableMouldValidator(output_path: string): boolean {
+  const script: string = join(output_path, "run.sh");
+  if (!readFileSync(script, { encoding: "utf-8" }).includes("hello from exec-test")) {
+    console.warn("executable-mould: substitution did not apply to run.sh");
+    return false;
+  }
+  if (process.platform === "win32") {
+    return true;
+  }
+  const scriptMode: number = lstatSync(script).mode & 0o111;
+  const plainMode: number = lstatSync(join(output_path, "plain.txt")).mode & 0o111;
+  if (scriptMode === 0) {
+    console.warn("executable-mould: run.sh lost its executable bit");
+    return false;
+  }
+  if (plainMode !== 0) {
+    console.warn("executable-mould: plain.txt unexpectedly became executable");
+    return false;
+  }
+  return true;
+}
+
+function literalSubstitutionsMouldValidator(output_path: string): boolean {
+  const values: string = readOutput(output_path, "values.txt");
+  const expected: string = "literal: a$&b\ndecoy: xxxYnameYxxx\nregex: v2.5\n";
+  if (values !== expected) {
+    console.warn("literal-substitutions-mould: unexpected values.txt: ", JSON.stringify(values));
+    return false;
+  }
+  return true;
+}
+
+function binaryMouldValidator(output_path: string): boolean {
+  const original: Buffer = readFileSync(
+    join(mockTestMouldsPath, "binary-mould", "pixel.png"),
+  );
+  const copied: Buffer = readFileSync(join(output_path, "pixel.png"));
+  if (!original.equals(copied)) {
+    console.warn("binary-mould: pixel.png was altered by the copy");
+    return false;
+  }
+  return readOutput(output_path, "text.txt").includes("Alongside the image: a pixel");
+}
+
+function defaultsMouldValidator(output_path: string): boolean {
+  // Rendered with no --input at all: both optional inputs fall back to their
+  // defaults, the boolean one as the string "true".
+  const settings: string = readOutput(output_path, "settings.ini");
+  if (settings !== "greeting=hello\nverbose=true\n") {
+    console.warn("defaults-mould: unexpected settings.ini: ", JSON.stringify(settings));
+    return false;
+  }
+  return true;
+}
+
 // Steps to run against a fixture directory *before* it is used, e.g. to
 // generate files that are deliberately not committed
 const prepares: Record<string, (fixturePath: string) => void> = {
@@ -343,6 +484,12 @@ const checks: Record<
   "interactive-test-mould": interactiveTestMouldValidator,
   "minimal-mould": minimalMouldValidator,
   "nested-config-mould": nestedConfigMouldValidator,
+  "conditional-mould": conditionalMouldValidator,
+  "renames-mould": renamesMouldValidator,
+  "executable-mould": executableMouldValidator,
+  "literal-substitutions-mould": literalSubstitutionsMouldValidator,
+  "binary-mould": binaryMouldValidator,
+  "defaults-mould": defaultsMouldValidator,
 };
 
 describe("MOULD_TEMPLATE_SOURCES", () => {
@@ -528,6 +675,8 @@ describe("inputs", () => {
           description: "Your name to be included in the greeting",
           required: true,
           type: "text",
+          options: "",
+          default: "",
         },
         {
           id: "favorite_color",
@@ -535,6 +684,8 @@ describe("inputs", () => {
           description: "Your favorite color",
           required: false,
           type: "text",
+          options: "",
+          default: "",
         },
       ],
     ]);
@@ -637,6 +788,63 @@ describe("create-minimal-template", () => {
     expect(
       runMouldCommand(["create-minimal-template", output_path], DEBUG),
     ).rejects.toThrow();
+  });
+});
+
+describe("use", () => {
+  test("accepts a template directory path instead of a name", async () => {
+    // No --sources-files at all: the path is used directly
+    const output_path: string = join(thisRunTmpPath, "use-by-path");
+    await runMouldCommand(
+      ["use", join(mockTestMouldsPath, "hello-world-mould"), output_path],
+      DEBUG,
+    );
+    expect(helloWorldMouldValidator(output_path)).toBeTrue();
+  });
+
+  test("splits --input pairs at the first '=' only", async () => {
+    const output_path: string = join(thisRunTmpPath, "input-with-equals");
+    await runMouldCommand(
+      [
+        "--sources-files",
+        testSourcesFilePath,
+        "use",
+        "interactive-test-mould",
+        output_path,
+        "--input",
+        "user_name=TestUser",
+        "favorite_color=a=b",
+      ],
+      DEBUG,
+    );
+    const greeting: string = readFileSync(join(output_path, "greeting.txt"), {
+      encoding: "utf-8",
+    });
+    expect(greeting).toContain("favorite color is a=b");
+  });
+
+  test("only requires the inputs marked required", async () => {
+    // 'favorite_color' is optional and omitted: the run succeeds and the
+    // placeholder is replaced with an empty string
+    const output_path: string = join(thisRunTmpPath, "optional-omitted");
+    await runMouldCommand(
+      [
+        "--sources-files",
+        testSourcesFilePath,
+        "use",
+        "interactive-test-mould",
+        output_path,
+        "--input",
+        "user_name=TestUser",
+      ],
+      DEBUG,
+    );
+    const greeting: string = readFileSync(join(output_path, "greeting.txt"), {
+      encoding: "utf-8",
+    });
+    expect(greeting).toContain("Hello TestUser!");
+    expect(greeting).toContain("favorite color is .");
+    expect(greeting).not.toContain("{{");
   });
 });
 

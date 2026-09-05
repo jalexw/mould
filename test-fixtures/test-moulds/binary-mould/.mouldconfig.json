@@ -1,0 +1,7 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [
+    { "id": "caption", "label": "Caption", "required": true, "type": "text" }
+  ],
+  "substitutions": [{ "find": "xxx_caption_xxx", "input": "caption" }]
+}

@@ -1,6 +1,6 @@
 {
   "name": "@jalexw/mould",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "private": false,
   "description": "Generate sample projects and insert code snippets from your configurable templates collection",
   "repository": {
@@ -38,6 +38,13 @@
   "type": "module",
   "types": "dist/index.d.ts",
   "module": "dist/index.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
   "bin": {
     "mould": "dist/bin/mould.js"
   },

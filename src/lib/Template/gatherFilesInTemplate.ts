@@ -21,6 +21,9 @@ async function isDirectory(filepath: string): Promise<boolean> {
   return fileStats.isDirectory();
 }
 
+/** Permission bits only — the type bits are irrelevant for the copy */
+const PERMISSION_BITS = 0o777 as const;
+
 async function gatherFilesRelativeToPath(
   templateBaseDirPath: string,
   relativePath: readonly string[],
@@ -46,7 +49,8 @@ async function gatherFilesRelativeToPath(
   for (const child of children) {
     const filename: string = child;
     const absolutePathToChild: string = join(currentPath, filename);
-    const isChildADirectory: boolean = await isDirectory(absolutePathToChild);
+    const childStats = await lstat(absolutePathToChild);
+    const isChildADirectory: boolean = childStats.isDirectory();
 
     if (
       ignore({
@@ -84,8 +88,12 @@ async function gatherFilesRelativeToPath(
       name: child,
       absolutePath: absolutePathToChild,
       relativePath: [...relativePath, child],
+      mode: childStats.mode & PERMISSION_BITS,
       readUtf8: (): string => {
         return readFileSync(absolutePathToChild, { encoding: "utf8" });
+      },
+      readBuffer: (): Buffer => {
+        return readFileSync(absolutePathToChild);
       },
     };
 

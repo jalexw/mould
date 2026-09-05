@@ -17,6 +17,13 @@ import Template from "@/lib/Template";
 import MouldCliConfig from "@/lib/MouldCliConfig";
 import { homedir } from "os";
 import type { MouldTemplateSourcesConfigFile } from "@/types/MouldTemplateSourcesConfigFile";
+import {
+  MouldError,
+  InvalidInputValueError,
+  MissingRequiredInputError,
+} from "@/lib/errors";
+import { resolveInputs, type PromptForInput } from "@/lib/Inputs";
+import { basename, isAbsolute, sep } from "path";
 
 export interface IMouldCommandLineInterfaceConstructorOpts {
   mouldAppDir: string;
@@ -274,22 +281,87 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
 
   private async promptForInput(
     inputDef: MouldInputItemDefinition,
+    previousError?: InvalidInputValueError,
   ): Promise<string> {
     const rl = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
 
-    return new Promise((resolve) => {
-      const prompt = inputDef.description
-        ? `${inputDef.label} (${inputDef.description}): `
-        : `${inputDef.label}: `;
+    if (previousError) {
+      console.error(`❌ ${previousError.message}`);
+    }
 
-      rl.question(prompt, (answer: string) => {
+    // Hints: allowed values for a select, y/n for a boolean, the default (if any)
+    const hints: string[] = [];
+    if (inputDef.description) {
+      hints.push(inputDef.description);
+    }
+    if (inputDef.type === "select") {
+      hints.push(inputDef.options.join("/"));
+    } else if (inputDef.type === "boolean") {
+      hints.push("y/n");
+    }
+    const hint: string = hints.length > 0 ? ` (${hints.join("; ")})` : "";
+    const fallback: string =
+      inputDef.default !== undefined ? ` [${String(inputDef.default)}]` : "";
+
+    return new Promise((resolve) => {
+      rl.question(`${inputDef.label}${hint}${fallback}: `, (answer: string) => {
         rl.close();
         resolve(answer.trim());
       });
     });
+  }
+
+  /**
+   * `mould use` accepts either a template *name* (resolved through the
+   * configured `template-sources.json` files) or a template directory *path*.
+   * Anything that looks like a path — contains a separator or starts with a
+   * dot — and is an existing directory is treated as a path.
+   */
+  private static looksLikeTemplatePath(nameOrPath: string): boolean {
+    const pathLike: boolean =
+      nameOrPath.includes("/") ||
+      nameOrPath.includes(sep) ||
+      nameOrPath.startsWith(".") ||
+      isAbsolute(nameOrPath);
+    if (!pathLike) {
+      return false;
+    }
+    try {
+      return lstatSync(nameOrPath).isDirectory();
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Parse `--input key=value ...` pairs. The split happens at the *first* `=`
+   * only, so values may themselves contain `=`; an empty value is allowed.
+   */
+  private static parseInputOption(opts: unknown): Record<string, string> {
+    const input_values: Record<string, string> = {};
+    if (
+      typeof opts === "object" &&
+      !!opts &&
+      "input" in opts &&
+      Array.isArray(opts.input)
+    ) {
+      for (const pair of opts.input) {
+        if (typeof pair !== "string") {
+          throw new TypeError("Expected every --input argument to be a string!");
+        }
+        const equals: number = pair.indexOf("=");
+        if (equals <= 0) {
+          throw new TypeError(
+            `Expected --input argument '${pair}' to look like '<input_id>=<value>'!`,
+          );
+        }
+        input_values[pair.slice(0, equals)] = pair.slice(equals + 1);
+      }
+    }
+    return input_values;
   }
 
   private addSetupMouldCliCommand(): void {
@@ -341,11 +413,14 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
       .description(
         "🏭 Load, apply substitutions, & output a configured template",
       )
-      .argument("<template_name>", "Template name to use")
+      .argument(
+        "<template_name>",
+        "Template name to use (or the path of a template directory)",
+      )
       .argument("<output_path>", "Output location")
       .option(
         "-i, --input <KEYVALUEPAIRS...>",
-        "space-separated value pairs input for mould (e.g. -i input_name_a=a input_name_b=foo)",
+        "space-separated <input_id>=<value> pairs (split at the first '='; e.g. -i input_name_a=a input_name_b=foo)",
       )
       .option(
         "--interactive",
@@ -365,106 +440,85 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
           return useCommand.help();
         }
 
-        const templateSources: readonly ITemplateSourceDirectory[] =
-          this.parseAndMergeSourcesFilesBasedOnCliOption(opts).loadTemplateSourceDirectories();
-
-        let template: ITemplate;
         try {
-          template = await searchForTemplate({
-            templateSources,
-            searchCriteria: { name: template_name },
-          });
-        } catch (e: unknown) {
-          console.error("Failed to load template to copy from: ", e);
-          process.exit(1);
-        }
-
-        let config: ITemplateConfig | undefined = undefined;
-        if (template.hasConfig) {
-          config = await template.loadConfig();
-        }
-
-        // Parsed input options from console arg
-        const input_values: Record<string, string> = {};
-
-        if (
-          typeof opts === "object" &&
-          !!opts &&
-          "input" in opts &&
-          Array.isArray(opts.input) &&
-          opts.input.every((i): i is string => typeof i === "string" && !!i)
-        ) {
-          opts.input.forEach((i: string) => {
-            const splitByEquals: string[] = i.split("=");
-            if (
-              splitByEquals.length !== 2 ||
-              !splitByEquals[0] ||
-              !splitByEquals[1]
-            ) {
-              throw new TypeError(
-                "Failed to split argument to --input option into two parts by '=' symbol!",
-              );
+          let template: ITemplate;
+          if (MouldCommandLineInterface.looksLikeTemplatePath(template_name)) {
+            const templatePath: string = resolve(template_name);
+            template = new Template(basename(templatePath), templatePath);
+          } else {
+            const templateSources: readonly ITemplateSourceDirectory[] =
+              this.parseAndMergeSourcesFilesBasedOnCliOption(opts).loadTemplateSourceDirectories();
+            try {
+              template = await searchForTemplate({
+                templateSources,
+                searchCriteria: { name: template_name },
+              });
+            } catch (e: unknown) {
+              console.error("Failed to load template to copy from: ", e);
+              process.exit(1);
             }
-            const key: string = splitByEquals[0];
-            const value: string = splitByEquals[1];
-            input_values[key] = value;
-          });
-        }
+          }
 
-        if (config && config.inputs) {
-          const inputs: readonly MouldInputItemDefinition[] = [
-            ...config.inputs,
-          ];
+          let config: ITemplateConfig | undefined = undefined;
+          if (template.hasConfig) {
+            config = await template.loadConfig();
+          }
 
-          // Check for interactive mode
-          const isInteractive =
+          const provided: Record<string, string> =
+            MouldCommandLineInterface.parseInputOption(opts);
+
+          const isInteractive: boolean =
             typeof opts === "object" &&
             !!opts &&
             "interactive" in opts &&
             opts.interactive === true;
 
-          // Find missing inputs
-          const missingInputs = inputs.filter(
-            (input) => !(input.id in input_values),
+          const prompt: PromptForInput | undefined = isInteractive
+            ? (input, previousError) => this.promptForInput(input, previousError)
+            : undefined;
+
+          const inputs: readonly MouldInputItemDefinition[] = config?.inputs ?? [];
+          const unresolved: number = inputs.filter(
+            (input) => !(input.id in provided),
+          ).length;
+          if (isInteractive && unresolved > 0) {
+            console.log(
+              `📝 Gathering ${unresolved} missing input(s) for template '${template.name}'...\n`,
+            );
+          }
+
+          const input_values: Record<string, string> = await resolveInputs(
+            inputs,
+            provided,
+            prompt,
           );
 
-          if (missingInputs.length > 0) {
-            if (isInteractive) {
-              console.log(
-                `📝 Gathering ${missingInputs.length} missing input(s) for template '${template_name}'...\n`,
-              );
-
-              for (const input of missingInputs) {
-                const value = await this.promptForInput(input);
-                if (!value && input.required) {
-                  console.error(
-                    `❌ Required input '${input.id}' cannot be empty!`,
-                  );
-                  process.exit(1);
-                }
-                input_values[input.id] = value;
-              }
-
-              console.log("✅ All inputs gathered!\n");
-            } else {
-              let exitFromInvalidInputs: boolean = false;
-              missingInputs.forEach((input) => {
-                console.error(
-                  `Missing input '${input.id}' for mould template!`,
-                );
-                exitFromInvalidInputs = true;
-              });
-              if (exitFromInvalidInputs) {
-                console.error(
-                  "Invalid inputs based on .mouldconfig.json for template! Use --interactive flag to be prompted for missing inputs.",
-                );
-                process.exit(1);
-              }
-            }
+          if (isInteractive && unresolved > 0) {
+            console.log("✅ All inputs gathered!\n");
           }
-        }
 
-        await template.export({ output_path, input_values });
+          await template.export({
+            output_path,
+            input_values,
+            onWarning: (message: string): void => {
+              console.warn(`⚠️  ${message}`);
+            },
+          });
+        } catch (e: unknown) {
+          if (e instanceof MouldError) {
+            console.error(`❌ ${e.message}`);
+            if (e.cause !== undefined && process.env.NODE_ENV === "development") {
+              console.error(e.cause);
+            }
+            if (e instanceof MissingRequiredInputError) {
+              console.error(
+                "Pass the missing inputs with --input <id>=<value>, or use --interactive to be prompted for them.",
+              );
+            }
+            process.exit(1);
+          }
+          throw e;
+        }
       },
     );
   }
@@ -496,11 +550,11 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
     const createCommand = this.program
       .command("create-template-sources-file")
       .description(
-        "🆕 Scaffold a new, minimal mould template directory with a '.mouldconfig.json' file",
+        "🆕 Write a new, minimal 'template-sources.json' file",
       )
       .argument(
         "<sources_file_path>",
-        "Path of the new template directory to create",
+        "Path of the template sources file to create",
       );
 
     createCommand.action(async (template_sources_file_path: string): Promise<void> => {
@@ -622,6 +676,8 @@ export class MouldCommandLineInterface implements IMouldCommandLineInterface {
             description: input.description ?? "",
             required: input.required,
             type: input.type,
+            options: input.type === "select" ? input.options.join(" | ") : "",
+            default: input.default === undefined ? "" : String(input.default),
           })),
         );
       },
