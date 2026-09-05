@@ -6,7 +6,14 @@ import type { ITemplateFile } from "@/types/ITemplateFile";
 import type { ITemplateDirectory } from "@/types/ITemplateDirectory";
 import { readFile } from "fs/promises";
 import { join } from "path";
-import gatherFilesInTemplate from "./gatherFilesInTemplate";
+import gatherFilesInTemplate, {
+  type ITemplateEntryCandidate,
+  type ShouldIgnorePathFn,
+} from "./gatherFilesInTemplate";
+import {
+  compileIgnorePatterns,
+  type IgnorePatternMatcher,
+} from "@/lib/IgnorePatterns";
 import exportTemplate from "./exportTemplate";
 import { existsSync } from "fs";
 import MouldTemplateConfig from "@/lib/MouldTemplateConfig";
@@ -53,6 +60,10 @@ export class Template implements ITemplate {
     }
   }
 
+  /**
+   * Entries that are never copied, whatever the template's config says:
+   * mould's own metadata file, OS clutter, and installed dependencies.
+   */
   protected shouldHideInputTemplateFile(filename: string): boolean {
     if (filename === ".DS_Store") {
       return true;
@@ -64,14 +75,26 @@ export class Template implements ITemplate {
     return false;
   }
 
-  protected async listTemplateFiles(): Promise<
-    readonly (ITemplateFile | ITemplateDirectory)[]
-  > {
+  protected async listTemplateFiles(
+    config: ITemplateConfig,
+  ): Promise<readonly (ITemplateFile | ITemplateDirectory)[]> {
     const template: ITemplate = this;
-    const ignore: (pathSegment: string) => boolean = (
-      pathSegment: string,
+    const matchesIgnorePattern: IgnorePatternMatcher = compileIgnorePatterns(
+      config.ignorePatterns,
+    );
+    const ignore: ShouldIgnorePathFn = (
+      candidate: ITemplateEntryCandidate,
     ): boolean => {
-      return this.shouldHideInputTemplateFile(pathSegment);
+      if (this.shouldHideInputTemplateFile(candidate.name)) {
+        return true;
+      }
+      const ignored: boolean = matchesIgnorePattern(candidate);
+      if (ignored && this.debug) {
+        console.log(
+          `Template<"${this.name}"> ignoring '${candidate.relativePath.join("/")}' (matched an 'ignorePatterns' entry)`,
+        );
+      }
+      return ignored;
     };
     return await gatherFilesInTemplate(template, ignore);
   }
@@ -103,7 +126,7 @@ export class Template implements ITemplate {
     }
 
     const files: readonly (ITemplateFile | ITemplateDirectory)[] =
-      await this.listTemplateFiles();
+      await this.listTemplateFiles(config);
 
     if (this.debug) {
       console.log(

@@ -13,6 +13,13 @@ export const templateConfigSchema = object({
       )
       .optional(),
     substitutions: templateSubstitutionsList.optional(),
+    ignorePatterns: string()
+      .array()
+      .readonly()
+      .describe(
+        "Gitignore-style patterns (e.g. 'dist/', 'node_modules/', '*.log', 'src/generated/**') for files and directories in the template that should not be copied to the output. Patterns without a '/' match an entry name at any depth; a trailing '/' matches directories only; a leading '/' anchors the pattern to the template root.",
+      )
+      .optional(),
   })
   .strict();
 

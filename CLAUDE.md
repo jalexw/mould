@@ -21,7 +21,7 @@ There is no linter or formatter configured. Type checking happens via `bun run b
 
 ## Architecture
 
-`mould` copies a template directory ("mould") to an output directory, applying string substitutions on the way.
+`mould` copies a template directory ("mould") to an output directory, applying string substitutions on the way. A template's `.mouldconfig.json` may list `ignorePatterns` (gitignore-style, compiled by `src/lib/IgnorePatterns/`) to keep files such as `dist/` out of the output; `.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped.
 
 **CLI Entry chain:** `src/bin/mould.ts` (the published `bin`, `#!/usr/bin/env node`) → `run()` in `src/index.ts` → `MouldCommandLineInterface` (`src/cli.ts`, commander-based)
 
@@ -35,4 +35,4 @@ There is no linter or formatter configured. Type checking happens via `bun run b
 
 ## Tests
 
-`src/__test__/moulds.test.ts` is data-driven: **every immediate subdirectory of `test-fixtures/test-moulds/` automatically becomes a test case** that runs `mould --sources-files <generated>.json use <name> ./tmp/test-run-<uuid>/<name>`, where the generated sources file points at `test-fixtures/test-moulds`. Note that `--sources-files` is a program-level flag, so it must precede the subcommand. Adding a fixture directory adds a test. To supply inputs or assert on the output, add entries keyed by the fixture name to the `sampleInputs` and `checks` maps in that file. The CLI is invoked in-process via the exported `run()`, so `process.exit` in library code will kill the test run.
+`src/__test__/moulds.test.ts` is data-driven: **every immediate subdirectory of `test-fixtures/test-moulds/` automatically becomes a test case** that runs `mould --sources-files <generated>.json use <name> ./tmp/test-run-<uuid>/<name>`, where the generated sources file points at `test-fixtures/test-moulds`. Note that `--sources-files` is a program-level flag, so it must precede the subcommand. Adding a fixture directory adds a test. To supply inputs or assert on the output, add entries keyed by the fixture name to the `sampleInputs` and `checks` maps in that file; a `prepares` entry runs against the fixture directory before `mould use` (the `ignore-patterns-mould` fixture uses it to `bun install` and `bun run build`, so its gitignored `dist/` and `node_modules/` exist; those need network on a cold cache). The CLI is invoked in-process via the exported `run()`, so `process.exit` in library code will kill the test run.

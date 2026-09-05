@@ -16,6 +16,7 @@ import {
   readFileSync,
   writeFileSync
 } from "fs";
+import { spawnSync } from "child_process";
 
 const projectRootDir: string = normalize(join(__dirname, "..", ".."));
 const testRunId: string = crypto.randomUUID();
@@ -140,6 +141,9 @@ const sampleInputs: Record<string, Record<string, string>> = {
     user_name: "TestUser",
     favorite_color: "blue",
   },
+  "ignore-patterns-mould": {
+    app_name: "ignore-patterns-app",
+  },
 };
 
 async function checkDidExampleTypeScriptProjectVariableSubstituteSuccess(
@@ -228,6 +232,104 @@ function nestedConfigMouldValidator(output_path: string): boolean {
   );
 }
 
+/**
+ * Run a command inside a fixture directory, failing loudly (with its output)
+ * if it does not exit cleanly.
+ */
+function runInFixture(fixturePath: string, command: string, args: readonly string[]): void {
+  const result = spawnSync(command, [...args], {
+    cwd: fixturePath,
+    encoding: "utf-8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(
+      `'${[command, ...args].join(" ")}' failed in '${fixturePath}' with exit code ${result.status}\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+}
+
+/**
+ * The 'ignore-patterns-mould' fixture is a real (tiny) TypeScript app. 'dist/'
+ * and 'node_modules/' stay gitignored, so they are produced here — by actually
+ * installing and building the app — before the template is used. Their
+ * existence is asserted so the later "not exported" check cannot pass vacuously.
+ */
+function prepareIgnorePatternsMould(fixturePath: string): void {
+  runInFixture(fixturePath, "bun", ["install", "--no-save"]);
+  runInFixture(fixturePath, "bun", ["run", "build"]);
+
+  for (const generated of ["node_modules", "dist", join("dist", "index.js")]) {
+    expect(existsSync(join(fixturePath, generated))).toBeTrue();
+  }
+}
+
+function ignorePatternsMouldValidator(output_path: string): boolean {
+  // After install + build the fixture holds build output ('dist/'), installed
+  // dependencies ('node_modules/') and a stray log file, all of which its
+  // '.mouldconfig.json' lists under 'ignorePatterns'. None of them may reach
+  // the scaffolded app — while the app's real sources must.
+  const exported: readonly string[] = [
+    ...listExportedPathsRecursively(output_path),
+  ].sort();
+
+  const expected: readonly string[] = [
+    "README.md",
+    "package.json",
+    "src",
+    "src/index.ts",
+    "tsconfig.json",
+  ];
+
+  const unexpected: readonly string[] = exported.filter(
+    (exportedPath: string): boolean => !expected.includes(exportedPath),
+  );
+  const missing: readonly string[] = expected.filter(
+    (expectedPath: string): boolean => !exported.includes(expectedPath),
+  );
+
+  if (unexpected.length > 0) {
+    console.warn("Paths that should have been ignored were exported: ", unexpected);
+    return false;
+  }
+  if (missing.length > 0) {
+    console.warn("Paths that should have been exported are missing: ", missing);
+    return false;
+  }
+
+  for (const ignoredPath of ["dist", "node_modules", "debug.log"]) {
+    if (existsSync(join(output_path, ignoredPath))) {
+      console.warn(`'${ignoredPath}' should not exist in the scaffolded app`);
+      return false;
+    }
+  }
+
+  // Substitutions still apply to the files that do get copied
+  const packageJson: unknown = JSON.parse(
+    readFileSync(join(output_path, "package.json"), { encoding: "utf-8" }),
+  );
+  if (
+    typeof packageJson !== "object" ||
+    !packageJson ||
+    !("name" in packageJson) ||
+    packageJson["name"] !== "ignore-patterns-app"
+  ) {
+    console.warn("Expected package.json name to be 'ignore-patterns-app'");
+    return false;
+  }
+
+  return true;
+}
+
+// Steps to run against a fixture directory *before* it is used, e.g. to
+// generate files that are deliberately not committed
+const prepares: Record<string, (fixturePath: string) => void> = {
+  "ignore-patterns-mould": prepareIgnorePatternsMould,
+};
+
 // Checks for a given mould
 const checks: Record<
   string,
@@ -237,6 +339,7 @@ const checks: Record<
   "example-typescript-project":
     checkDidExampleTypeScriptProjectVariableSubstituteSuccess,
   "hello-world-mould": helloWorldMouldValidator,
+  "ignore-patterns-mould": ignorePatternsMouldValidator,
   "interactive-test-mould": interactiveTestMouldValidator,
   "minimal-mould": minimalMouldValidator,
   "nested-config-mould": nestedConfigMouldValidator,
@@ -542,6 +645,8 @@ describe("Test Moulds", () => {
 
   testMoulds.forEach((testMould: string): void => {
     const testTemplateName: string = testMould;
+    // Installing and building a fixture takes longer than the default timeout
+    const timeoutMs: number = prepares[testTemplateName] ? 120_000 : 5_000;
     test(`can use template '${testTemplateName}'`, async () => {
       const output_path: string = join(thisRunTmpPath, testMould);
       expect(existsSync(output_path)).toBeFalsy();
@@ -554,6 +659,10 @@ describe("Test Moulds", () => {
         testTemplateName,
         output_path,
       ];
+
+      if (prepares[testTemplateName]) {
+        prepares[testTemplateName](join(mockTestMouldsPath, testTemplateName));
+      }
 
       // Pass pre-saved sample inputs if some are set
       if (!!sampleInputs[testTemplateName]) {
@@ -578,6 +687,19 @@ describe("Test Moulds", () => {
       );
       expect(leakedConfigs).toEqual([]);
 
+      // Build output and installed dependencies never belong in a scaffolded
+      // app: 'node_modules' is always skipped, and the fixtures that carry a
+      // 'dist/' list it under 'ignorePatterns'.
+      const leakedArtifacts: readonly string[] = exportedPaths.filter(
+        (exportedPath: string): boolean => {
+          const segments: readonly string[] = exportedPath.split("/");
+          return (
+            segments.includes("dist") || segments.includes("node_modules")
+          );
+        },
+      );
+      expect(leakedArtifacts).toEqual([]);
+
       if (checks[testTemplateName]) {
         const checkFn:
           | ((output_path: string) => Promise<boolean>)
@@ -585,6 +707,6 @@ describe("Test Moulds", () => {
         const isValid: boolean = await checkFn(output_path);
         expect(isValid).toBeTrue();
       }
-    });
+    }, timeoutMs);
   });
 });

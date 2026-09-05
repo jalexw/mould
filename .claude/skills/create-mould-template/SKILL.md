@@ -56,13 +56,18 @@ hand instead.
 
 Copy in the real files the template should produce. Everything in the tree
 ships, at any depth, including dotfiles — except `.mouldconfig.json`,
-`node_modules`, and `.DS_Store`, which are skipped by name at every level.
+`node_modules`, and `.DS_Store`, which are skipped by name at every level, and
+whatever the config's `ignorePatterns` excludes (step 5).
 
 Keep out of the template:
 
 - Binary assets — files are round-tripped as UTF-8 and will be corrupted.
-- Installed dependencies, build output, lockfile-adjacent junk.
 - Real secrets. Templates are copied verbatim; there is no redaction step.
+
+Build output, lockfile-adjacent junk and other generated files are best kept
+out too — but when the template doubles as a working app (so `dist/` or
+`coverage/` keep reappearing), list them under `ignorePatterns` instead of
+deleting them before every commit.
 
 ### 4. Choose placeholders and mark up the files
 
@@ -109,7 +114,8 @@ Placeholder rules that matter:
   "substitutions": [
     ["XxX_ProjectName_XxX", "project_name"],
     ["YyY_OrgScope_YyY", "org_scope"]
-  ]
+  ],
+  "ignorePatterns": ["dist/", "coverage/", "*.log"]
 }
 ```
 
@@ -125,6 +131,11 @@ Placeholder rules that matter:
 - Omit `substitutions` entirely for a verbatim template. An empty array is
   rejected (the list must be non-empty when present).
 - `inputs` may be `[]` for a template that collects nothing.
+- `ignorePatterns` lists `.gitignore`-style patterns for files and directories
+  that must not be copied: `dist/` (directories only, any depth), `*.log` (by
+  name, any depth), `/coverage` or `src/generated/` (relative to the template
+  root), `**` for any number of directories. Negation is not supported. Omit it
+  or pass `[]` when nothing needs excluding — `node_modules` is skipped anyway.
 
 The `$schema` URL gives editors autocompletion and validation:
 `https://jalexw.github.io/mould/openapi/mouldconfig.json`.
@@ -144,8 +155,9 @@ rm -rf /tmp/mould-check
 ```
 
 Check that: every placeholder is gone, no `.mouldconfig.json` leaked into the
-output, the tree shape is right, and the generated project actually
-builds/installs if that is the point of it.
+output, nothing listed in `ignorePatterns` made it through, the tree shape is
+right, and the generated project actually builds/installs if that is the point
+of it.
 
 The output directory must not already exist, and its parent must — re-running
 into the same path fails until you delete it.
@@ -163,7 +175,11 @@ So when adding a fixture template:
 2. If it declares inputs, add an entry keyed by the template name to the
    `sampleInputs` map — otherwise the generated test fails on missing inputs.
 3. To assert on the generated output, add a validator to the `checks` map.
-4. Run `bun run test` (tests plus `rm -rf ./tmp`).
+4. If the fixture needs files that are not committed (e.g. a `dist/` or
+   `node_modules/` that `.gitignore` excludes), add a step to the `prepares`
+   map — it runs against the fixture directory before `mould use`, the way
+   `ignore-patterns-mould` runs `bun install --no-save` and `bun run build`.
+5. Run `bun run test` (tests plus `rm -rf ./tmp`).
 
 Fixture configs may point `$schema` at `../../../dist/openapi/mouldconfig.json`
 to validate against the locally built schema instead of the published one.
@@ -176,4 +192,5 @@ to validate against the locally built schema instead of the published one.
 - [ ] Placeholders are regex-safe and distinctive
 - [ ] Every substitution's `input_id` matches a declared input `id`
 - [ ] No binaries, no `node_modules`, no secrets
+- [ ] Build output and other generated files either absent or listed under `ignorePatterns`
 - [ ] Generated once into a throwaway directory and inspected
