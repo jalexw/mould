@@ -1,13 +1,14 @@
 ---
 name: mould-templates
-description: How `mould` templates work end to end — how `template-sources.json` resolves template directories, what `.mouldconfig.json` declares (inputs and substitutions), which files get copied or skipped, and how substitutions are applied. Use to understand or debug mould's model before authoring or running a template, or when a template resolves to the wrong thing, a placeholder is left unreplaced, or a file unexpectedly appears/disappears in the output.
+description: How `mould` templates work end to end — how `template-sources.json` resolves template directories, what `.mouldconfig.json` declares (inputs, substitutions and ignorePatterns), which files get copied or skipped, and how substitutions are applied. Use to understand or debug mould's model before authoring or running a template, or when a template resolves to the wrong thing, a placeholder is left unreplaced, or a file unexpectedly appears/disappears in the output.
 ---
 
 # How `mould` templates work
 
 `mould` copies a template directory to a new output directory, rewriting file
-*contents* on the way. That is the entire feature set — there is no scripting,
-no conditional file inclusion, and no post-generation hooks.
+*contents* on the way and leaving out anything matched by the template's
+`ignorePatterns`. That is the entire feature set — there is no scripting, no
+input-dependent file inclusion, and no post-generation hooks.
 
 ```
 template-sources.json  ──▶  source directories  ──▶  a template directory
@@ -97,7 +98,8 @@ Optionally, its root holds a `.mouldconfig.json`:
       "type": "text"
     }
   ],
-  "substitutions": [["XxX_ProjectName_XxX", "project_name"]]
+  "substitutions": [["XxX_ProjectName_XxX", "project_name"]],
+  "ignorePatterns": ["dist/", "*.log"]
 }
 ```
 
@@ -127,17 +129,38 @@ For each pair, mould replaces every occurrence of `pattern` in every copied
 file's text with the value supplied for `input_id`. Pairs are applied in order,
 so a later substitution can rewrite text a previous one inserted.
 
+### `ignorePatterns`
+
+A list of `.gitignore`-style patterns naming files and directories in the
+template that must **not** be copied to the output. Typical use: a template that
+is itself a working app, whose `dist/`, `node_modules/` or log files would
+otherwise ship.
+
+| Pattern | Matches |
+| ------- | ------- |
+| `dist/` | A **directory** named `dist`, at any depth (trailing `/` = directories only) |
+| `dist` | A file *or* directory named `dist`, at any depth |
+| `*.log` | Any entry whose **name** matches, at any depth — `*` and `?` never cross a `/` |
+| `/coverage` | Anchored to the template root (a leading `/`) |
+| `src/generated/` | Any pattern containing a `/` is relative to the template root |
+| `**/fixtures/`, `src/**/*.snap`, `docs/**` | `**` matches any number of directories |
+
+An ignored directory is pruned whole — nothing beneath it is visited. Negation
+(`!pattern`) is not supported, and there is no way to re-include something a
+pattern excluded. The list may be empty or omitted.
+
 ## 3. What actually gets copied
 
 The whole tree is walked recursively; directories are recreated, files are read
 as UTF-8, transformed, and written out.
 
-Skipped at **every** depth, by exact filename:
+Skipped at **every** depth, by exact filename, whatever the config says:
 
 - `.mouldconfig.json`
 - `node_modules`
 - `.DS_Store`
 
+…plus anything matched by the root config's `ignorePatterns` (see above).
 Everything else ships, including dotfiles. Note that only the template **root**
 `.mouldconfig.json` is read as config — a `.mouldconfig.json` deeper in the tree
 is neither read nor copied, so it cannot be used to configure a subdirectory.

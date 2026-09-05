@@ -21,7 +21,7 @@ There is no linter or formatter configured. Type checking happens via `bun run b
 
 ## Architecture
 
-`mould` copies a template directory ("mould") to an output directory, applying string substitutions on the way.
+`mould` copies a template directory ("mould") to an output directory, applying string substitutions on the way. A template's `.mouldconfig.json` may list `ignorePatterns` (gitignore-style, compiled by `src/lib/IgnorePatterns/`) to keep files such as `dist/` out of the output; `.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped.
 
 **CLI Entry chain:** `src/bin/mould.ts` (the published `bin`, `#!/usr/bin/env node`) → `run()` in `src/index.ts` → `MouldCommandLineInterface` (`src/cli.ts`, commander-based)
 

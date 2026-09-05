@@ -18,6 +18,7 @@ export class MouldTemplateConfig implements ITemplateConfig {
   private static readonly schema = templateConfigSchema;
   private _inputs: readonly MouldInputItemDefinition[] | undefined;
   private _substitutions: TemplateSubstitutionList | undefined;
+  private _ignorePatterns: readonly string[] | undefined;
 
   private constructor(opts: ITemplateConfigConstructorOpts) {
     const parsed = MouldTemplateConfig.safeParse(opts.data)
@@ -26,9 +27,10 @@ export class MouldTemplateConfig implements ITemplateConfig {
         cause: parsed.error
       });
     }
-    const { inputs, substitutions } = parsed.data;
+    const { inputs, substitutions, ignorePatterns } = parsed.data;
     this._inputs = inputs;
     this._substitutions = substitutions;
+    this._ignorePatterns = ignorePatterns;
   }
 
   public static get default(): MouldTemplateConfig {
@@ -43,6 +45,10 @@ export class MouldTemplateConfig implements ITemplateConfig {
 
   public get substitutions(): TemplateSubstitutionList | undefined {
     return this._substitutions;
+  }
+
+  public get ignorePatterns(): readonly string[] | undefined {
+    return this._ignorePatterns;
   }
 
   private static safeParse(maybeConfig: unknown) {

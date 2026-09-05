@@ -1,0 +1,14 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [
+    {
+      "id": "app_name",
+      "label": "App Name",
+      "description": "Value for the 'name' field of the generated package.json",
+      "required": true,
+      "type": "text"
+    }
+  ],
+  "substitutions": [["XxX_AppName_XxX", "app_name"]],
+  "ignorePatterns": ["dist/", "node_modules/", "*.log"]
+}

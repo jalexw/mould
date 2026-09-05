@@ -204,6 +204,25 @@ mould --sources-files ./test-fixtures/test-template-sources.json \
 ```
 
 
+### Keep files out of the generated output (`ignorePatterns`)
+
+Anything in a template directory is copied by default, so a template that is itself a working app tends to drag its build output and installed dependencies along. List `.gitignore`-style patterns under `ignorePatterns` in the template's [`.mouldconfig.json`](#json-schemas) to leave them out:
+```json
+{
+  "$schema": "https://jalexw.github.io/mould/openapi/mouldconfig.json",
+  "inputs": [],
+  "ignorePatterns": ["dist/", "node_modules/", "*.log", "src/generated/**"]
+}
+```
+
+- `dist/` — a trailing slash matches directories only, at any depth. An ignored directory is skipped whole.
+- `*.log` — a pattern without a `/` matches the file or directory *name* at any depth; `*` and `?` never cross a `/`.
+- `/coverage` — a leading slash anchors the pattern to the template root, and so does any pattern containing a `/` (e.g. `src/generated/`).
+- `**` matches any number of directories: `**/fixtures/`, `src/**/*.snap`, `docs/**`.
+- Negation (`!pattern`) is not supported.
+
+`.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped, whether or not they are listed. See the [`ignore-patterns-mould`](./test-fixtures/test-moulds/ignore-patterns-mould) fixture for a template that ships a `dist/` and a `node_modules/` that never reach the output.
+
 ### Load the configured list of template sources files
 ```bash
 mould template-sources

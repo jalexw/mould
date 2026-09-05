@@ -140,6 +140,9 @@ const sampleInputs: Record<string, Record<string, string>> = {
     user_name: "TestUser",
     favorite_color: "blue",
   },
+  "ignore-patterns-mould": {
+    app_name: "ignore-patterns-app",
+  },
 };
 
 async function checkDidExampleTypeScriptProjectVariableSubstituteSuccess(
@@ -228,6 +231,62 @@ function nestedConfigMouldValidator(output_path: string): boolean {
   );
 }
 
+function ignorePatternsMouldValidator(output_path: string): boolean {
+  // The fixture is a small app that ships with stale build output ('dist/'),
+  // installed dependencies ('node_modules/') and a stray log file, all of which
+  // its '.mouldconfig.json' lists under 'ignorePatterns'. None of them may reach
+  // the scaffolded app — while the app's real sources must.
+  const exported: readonly string[] = [
+    ...listExportedPathsRecursively(output_path),
+  ].sort();
+
+  const expected: readonly string[] = [
+    "README.md",
+    "package.json",
+    "src",
+    "src/index.ts",
+  ];
+
+  const unexpected: readonly string[] = exported.filter(
+    (exportedPath: string): boolean => !expected.includes(exportedPath),
+  );
+  const missing: readonly string[] = expected.filter(
+    (expectedPath: string): boolean => !exported.includes(expectedPath),
+  );
+
+  if (unexpected.length > 0) {
+    console.warn("Paths that should have been ignored were exported: ", unexpected);
+    return false;
+  }
+  if (missing.length > 0) {
+    console.warn("Paths that should have been exported are missing: ", missing);
+    return false;
+  }
+
+  for (const ignoredPath of ["dist", "node_modules", "debug.log"]) {
+    if (existsSync(join(output_path, ignoredPath))) {
+      console.warn(`'${ignoredPath}' should not exist in the scaffolded app`);
+      return false;
+    }
+  }
+
+  // Substitutions still apply to the files that do get copied
+  const packageJson: unknown = JSON.parse(
+    readFileSync(join(output_path, "package.json"), { encoding: "utf-8" }),
+  );
+  if (
+    typeof packageJson !== "object" ||
+    !packageJson ||
+    !("name" in packageJson) ||
+    packageJson["name"] !== "ignore-patterns-app"
+  ) {
+    console.warn("Expected package.json name to be 'ignore-patterns-app'");
+    return false;
+  }
+
+  return true;
+}
+
 // Checks for a given mould
 const checks: Record<
   string,
@@ -237,6 +296,7 @@ const checks: Record<
   "example-typescript-project":
     checkDidExampleTypeScriptProjectVariableSubstituteSuccess,
   "hello-world-mould": helloWorldMouldValidator,
+  "ignore-patterns-mould": ignorePatternsMouldValidator,
   "interactive-test-mould": interactiveTestMouldValidator,
   "minimal-mould": minimalMouldValidator,
   "nested-config-mould": nestedConfigMouldValidator,
@@ -577,6 +637,19 @@ describe("Test Moulds", () => {
           exportedPath.split("/").includes(mouldConfigFileName),
       );
       expect(leakedConfigs).toEqual([]);
+
+      // Build output and installed dependencies never belong in a scaffolded
+      // app: 'node_modules' is always skipped, and the fixtures that carry a
+      // 'dist/' list it under 'ignorePatterns'.
+      const leakedArtifacts: readonly string[] = exportedPaths.filter(
+        (exportedPath: string): boolean => {
+          const segments: readonly string[] = exportedPath.split("/");
+          return (
+            segments.includes("dist") || segments.includes("node_modules")
+          );
+        },
+      );
+      expect(leakedArtifacts).toEqual([]);
 
       if (checks[testTemplateName]) {
         const checkFn:

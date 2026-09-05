@@ -6,7 +6,15 @@ import { existsSync, readFileSync } from "fs";
 import { readdir, lstat } from "fs/promises";
 import { join } from "path";
 
-type ShouldIgnorePathFn = (pathSegment: string) => boolean;
+export interface ITemplateEntryCandidate {
+  /** Basename of the entry */
+  name: string;
+  /** Path segments relative to the template root, ending in `name` */
+  relativePath: readonly string[];
+  isDirectory: boolean;
+}
+
+export type ShouldIgnorePathFn = (candidate: ITemplateEntryCandidate) => boolean;
 
 async function isDirectory(filepath: string): Promise<boolean> {
   const fileStats = await lstat(filepath);
@@ -37,12 +45,20 @@ async function gatherFilesRelativeToPath(
 
   for (const child of children) {
     const filename: string = child;
-    if (ignore(filename)) {
+    const absolutePathToChild: string = join(currentPath, filename);
+    const isChildADirectory: boolean = await isDirectory(absolutePathToChild);
+
+    if (
+      ignore({
+        name: filename,
+        relativePath: [...relativePath, child],
+        isDirectory: isChildADirectory,
+      })
+    ) {
+      // An ignored directory is pruned whole: nothing beneath it is visited
       continue;
     }
 
-    const absolutePathToChild: string = join(currentPath, filename);
-    const isChildADirectory: boolean = await isDirectory(absolutePathToChild);
     if (isChildADirectory) {
       output.push({
         type: "directory",
