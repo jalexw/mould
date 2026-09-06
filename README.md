@@ -323,7 +323,7 @@ try {
   else throw e;
 }
 ```
-Also exported: `loadTemplateConfig(templatePath)`, `resolveInputs(...)`, the error classes (`TemplateNotFoundError`, `TemplateConfigError`, `OutputPathExistsError`, `OutputParentMissingError`, `MissingRequiredInputError`, `InvalidInputValueError`, `ConditionSyntaxError`, `RenameConflictError`) and the config types. The requirements that drove this API are in [`docs/requirements/init-next-app-template-support.md`](./docs/requirements/init-next-app-template-support.md).
+Also exported: `loadTemplateConfig(templatePath)`, `resolveInputs(...)`, the error classes (`TemplateNotFoundError`, `TemplateConfigError`, `OutputPathExistsError`, `OutputParentMissingError`, `MissingRequiredInputError`, `InvalidInputValueError`, `ConditionSyntaxError`, `RenameConflictError`) and the config types.
 
 ### Load the configured list of template sources files
 ```bash

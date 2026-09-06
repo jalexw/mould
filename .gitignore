@@ -5,6 +5,8 @@ template-sources.json
 templates/
 
 tmp/
+# Scratch documents (requirements drafts, notes) that are not versioned
+docs/tmp/
 
 dist/
 
