@@ -229,7 +229,8 @@ So when adding a fixture template:
 4. If the fixture needs files that are not committed (e.g. a `dist/` or
    `node_modules/` that `.gitignore` excludes), add a step to the `prepares`
    map — it runs against the fixture directory before `mould use`, the way
-   `ignore-patterns-mould` runs `bun install --no-save` and `bun run build`.
+   `ignore-patterns-mould` runs `bun install --no-save` and `bun run build`,
+   and `binary-mould` writes its gitignored `blob.bin` (commit no binaries).
 5. Templates that must *fail* (malformed markers, rename collisions) go under
    `test-fixtures/invalid-moulds/` instead, which the auto-runner ignores, and
    are asserted in `src/__test__/applyTemplate.test.ts`.

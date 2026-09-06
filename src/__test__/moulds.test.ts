@@ -268,6 +268,22 @@ function runInFixture(fixturePath: string, command: string, args: readonly strin
 }
 
 /**
+ * Every byte value 0..255, repeated, so the copy is exercised against a NUL byte
+ * (mould's binary heuristic) and against every byte a UTF-8 round-trip could
+ * mangle. Written into the 'binary-mould' fixture by `prepareBinaryMould`
+ * rather than committed, so no binary blob lives in the repository.
+ */
+const BINARY_FIXTURE_BYTES: Buffer = Buffer.from(
+  Array.from({ length: 256 * 4 }, (_: unknown, i: number): number => i % 256),
+);
+
+function prepareBinaryMould(fixturePath: string): void {
+  const blobPath: string = join(fixturePath, "blob.bin");
+  writeFileSync(blobPath, BINARY_FIXTURE_BYTES);
+  expect(existsSync(blobPath)).toBeTrue();
+}
+
+/**
  * The 'ignore-patterns-mould' fixture is a real (tiny) TypeScript app. 'dist/'
  * and 'node_modules/' stay gitignored, so they are produced here — by actually
  * installing and building the app — before the template is used. Their
@@ -443,15 +459,14 @@ function literalSubstitutionsMouldValidator(output_path: string): boolean {
 }
 
 function binaryMouldValidator(output_path: string): boolean {
-  const original: Buffer = readFileSync(
-    join(mockTestMouldsPath, "binary-mould", "pixel.png"),
-  );
-  const copied: Buffer = readFileSync(join(output_path, "pixel.png"));
-  if (!original.equals(copied)) {
-    console.warn("binary-mould: pixel.png was altered by the copy");
+  // Compared against the constant, not the fixture file, so a broken prepare
+  // step cannot make this pass vacuously.
+  const copied: Buffer = readFileSync(join(output_path, "blob.bin"));
+  if (!copied.equals(BINARY_FIXTURE_BYTES)) {
+    console.warn("binary-mould: blob.bin was altered by the copy");
     return false;
   }
-  return readOutput(output_path, "text.txt").includes("Alongside the image: a pixel");
+  return readOutput(output_path, "text.txt").includes("Alongside the blob: a pixel");
 }
 
 function defaultsMouldValidator(output_path: string): boolean {
@@ -469,6 +484,7 @@ function defaultsMouldValidator(output_path: string): boolean {
 // generate files that are deliberately not committed
 const prepares: Record<string, (fixturePath: string) => void> = {
   "ignore-patterns-mould": prepareIgnorePatternsMould,
+  "binary-mould": prepareBinaryMould,
 };
 
 // Checks for a given mould

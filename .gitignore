@@ -22,3 +22,6 @@ output/
 **/.DS_Store
 
 .npmrc
+
+# Written by src/__test__/moulds.test.ts before the fixture is rendered
+/test-fixtures/test-moulds/binary-mould/blob.bin
