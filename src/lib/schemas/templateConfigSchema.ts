@@ -1,6 +1,7 @@
 import { z, string, object } from "zod";
 import { templateSubstitutionsList } from "@/schemas/templateSubstitutionList";
 import { mouldInputItemDefinition } from "@/schemas/mouldInputItemDefinition";
+import { conditionalPathsEntry } from "@/schemas/conditionalPathsEntry";
 
 /** A `/`-separated path relative to the template root: no leading `/`, no `..`, no trailing `/`. */
 const relativePosixPath = string()
@@ -14,19 +15,6 @@ const relativePosixPath = string()
       !path.split("/").includes(""),
     "Expected a relative, '/'-separated path with no leading or trailing '/' and no '..' segments",
   );
-
-export const conditionalPathsEntry = object({
-  when: string()
-    .min(1)
-    .describe(
-      "Condition deciding whether `paths` are copied: `<input_id>`, `<input_id> == <value>` or `<input_id> != <value>`",
-    ),
-  paths: string()
-    .array()
-    .nonempty()
-    .readonly()
-    .describe("Gitignore-style patterns (same grammar as `ignorePatterns`) naming the files/directories that are only copied when `when` holds"),
-}).strict();
 
 export const templateConfigSchema = object({
     $schema: string().optional(),
@@ -61,6 +49,6 @@ export const templateConfigSchema = object({
   })
   .strict();
 
-export type ConditionalPathsEntry = z.infer<typeof conditionalPathsEntry>;
+export type { ConditionalPathsEntry } from "@/schemas/conditionalPathsEntry";
 
 export default templateConfigSchema;
