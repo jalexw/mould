@@ -1,0 +1,33 @@
+{
+  "$schema": "../../../dist/openapi/mouldconfig.json",
+  "inputs": [
+    {
+      "id": "deployment",
+      "label": "Deployment strategy",
+      "required": false,
+      "type": "select",
+      "options": ["vercel", "none"],
+      "default": "none"
+    },
+    {
+      "id": "with_docs",
+      "label": "Include the docs directory?",
+      "required": false,
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "id": "slug",
+      "label": "Slug",
+      "description": "Lowercase letters and hyphens only",
+      "required": true,
+      "type": "text",
+      "pattern": "^[a-z-]+$"
+    }
+  ],
+  "substitutions": [{ "find": "xxx_slug_xxx", "input": "slug" }],
+  "conditionalPaths": [
+    { "when": "deployment == vercel", "paths": ["/vercel.json"] },
+    { "when": "with_docs", "paths": ["docs/"] }
+  ]
+}

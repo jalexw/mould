@@ -1,0 +1,2 @@
+# mould:if flag
+never closed

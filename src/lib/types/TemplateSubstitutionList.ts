@@ -1,1 +1,5 @@
-export type { TemplateSubstitutionList } from '@/schemas/templateSubstitutionList';
+export type {
+  TemplateSubstitutionList,
+  TemplateSubstitution,
+  NormalizedTemplateSubstitution,
+} from '@/schemas/templateSubstitutionList';

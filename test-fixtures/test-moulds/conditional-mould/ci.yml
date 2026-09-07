@@ -1,0 +1,9 @@
+name: CI
+jobs:
+  build:
+    runs-on: ubuntu-latest
+  # mould:if deployment == vercel
+  publish-to-vercel:
+    needs: build
+    runs-on: ubuntu-latest
+  # mould:endif

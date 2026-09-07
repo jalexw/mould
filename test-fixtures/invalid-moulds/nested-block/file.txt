@@ -1,0 +1,5 @@
+# mould:if flag
+# mould:if mode == a
+x
+# mould:endif
+# mould:endif

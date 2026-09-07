@@ -168,12 +168,12 @@ template's [`.mouldconfig.json`](#json-schemas) — the `id` of each one is the 
 mould --sources-files ./test-fixtures/test-template-sources.json inputs example-typescript-project
 ```
 ```
-┌───┬──────────────┬──────────────┬────────────────────────────────────────────────────────┬──────────┬──────┐
-│   │ id           │ label        │ description                                            │ required │ type │
-├───┼──────────────┼──────────────┼────────────────────────────────────────────────────────┼──────────┼──────┤
-│ 0 │ project_name │ Project Name │ Package name for 'name' field of new package.json file │ true     │ text │
-│ 1 │ org_scope    │ Org Scope    │ Scope for 'name' field of new package.json file        │ true     │ text │
-└───┴──────────────┴──────────────┴────────────────────────────────────────────────────────┴──────────┴──────┘
+┌───┬──────────────┬──────────────┬────────────────────────────────────────────────────────┬──────────┬──────┬─────────┬─────────┐
+│   │ id           │ label        │ description                                            │ required │ type │ options │ default │
+├───┼──────────────┼──────────────┼────────────────────────────────────────────────────────┼──────────┼──────┼─────────┼─────────┤
+│ 0 │ project_name │ Project Name │ Package name for 'name' field of new package.json file │ true     │ text │         │         │
+│ 1 │ org_scope    │ Org Scope    │ Scope for 'name' field of new package.json file        │ true     │ text │         │         │
+└───┴──────────────┴──────────────┴────────────────────────────────────────────────────────┴──────────┴──────┴─────────┴─────────┘
 ```
 
 Pass `--json` to get the raw input definitions instead, which is easier to feed into another tool:
@@ -222,6 +222,108 @@ Anything in a template directory is copied by default, so a template that is its
 - Negation (`!pattern`) is not supported.
 
 `.mouldconfig.json`, `node_modules` and `.DS_Store` are always skipped, whether or not they are listed. See the [`ignore-patterns-mould`](./test-fixtures/test-moulds/ignore-patterns-mould) fixture: a small TypeScript app whose test installs and builds it first, then asserts that the resulting `dist/` and `node_modules/` never reach the output.
+
+### Rename files on copy (`renames`)
+
+Some files cannot be stored in a template under the name they should have in the output. The usual case is a `.gitignore` meant for the *generated* project: npm renames a packed `.gitignore` to `.npmignore` and applies nested `.gitignore` rules when packing, so a template shipped inside an npm package cannot carry one. Store it under another name and map it with `renames`:
+```json
+{
+  "renames": { "_gitignore": ".gitignore", "config/_npmrc": "config/.npmrc" }
+}
+```
+
+Keys and values are `/`-separated paths relative to the template root. A key naming a directory renames its whole subtree. Two entries resolving to the same output path fail the run; a key that matches nothing is only a warning (the file may have been left out by a conditional).
+
+### Conditional files and blocks
+
+Inputs can decide what gets generated. Declare a `select` or `boolean` input, then:
+
+- **Whole files or directories** — `conditionalPaths` lists gitignore-style patterns (same grammar as `ignorePatterns`) that are only copied when a condition holds:
+  ```json
+  {
+    "inputs": [
+      { "id": "deployment", "label": "Deployment", "required": false, "type": "select", "options": ["vercel", "none"], "default": "none" },
+      { "id": "with_docs", "label": "Include docs?", "required": false, "type": "boolean", "default": false }
+    ],
+    "conditionalPaths": [
+      { "when": "deployment == vercel", "paths": ["/vercel.json"] },
+      { "when": "with_docs", "paths": ["docs/"] }
+    ]
+  }
+  ```
+- **Blocks of lines inside a file** — wrap them in marker lines. A marker is a line holding only a comment leader, the directive and an optional comment trailer, so the file stays valid in your editor:
+  ```yaml
+  jobs:
+    build:
+      runs-on: ubuntu-latest
+    # mould:if deployment == vercel
+    publish-to-vercel:
+      needs: build
+    # mould:endif
+  ```
+  ```tsx
+  {/* mould:if with_docs */}
+  <DocsLink />
+  {/* mould:else */}
+  <span>No docs</span>
+  {/* mould:endif */}
+  ```
+  `# …`, `// …`, `/* … */`, `{/* … */}`, `<!-- … -->`, `-- …` and `; …` leaders are recognised. Marker lines are always removed; the lines of an inactive branch are removed; nothing else changes. Blocks cannot nest. JSON has no comments, so use `conditionalPaths` (or two variant files) for JSON.
+
+Conditions are tiny on purpose: `<input_id>` (true unless the value is empty or `false`), `<input_id> == <value>` or `<input_id> != <value>`. Every id must be a declared input, and a `select` literal must be one of its options — mistakes fail before anything is written.
+
+### Input types, defaults and validation
+
+| `type` | Extra fields | Accepted values |
+| --- | --- | --- |
+| `text` | `default`, `pattern` (a regular expression the value must match) | any string |
+| `select` | `options` (required), `default` (one of the options) | one of the options |
+| `boolean` | `default` | `true`/`false`, `yes`/`no`, `y`/`n`, `1`/`0` |
+
+Boolean values are substituted as the strings `true` / `false`. An input that is not supplied takes its `default`; only inputs marked `required` with no value fail a non-interactive run, so optional inputs no longer have to be passed. `mould inputs <template>` shows the `options` and `default` columns.
+
+### Literal substitutions
+
+Alongside the `[regex, input_id]` tuple form, substitutions may be objects. `find` is matched **literally** unless `regex` is `true`, so dots and dollar signs need no escaping:
+```json
+{
+  "substitutions": [
+    { "find": "xxx_project_name_xxx", "input": "project_name" },
+    { "find": "https://auth.example.com", "input": "auth_url" },
+    { "find": "v1\\.0", "input": "version", "regex": true }
+  ]
+}
+```
+In both forms the input's value is inserted verbatim (`$&` in a value is never expanded), and an explicitly supplied empty value does substitute.
+
+### Other copy rules
+
+- File permission bits are preserved, so an executable script stays executable.
+- Files that look binary (a NUL byte in the first 8000 bytes) are copied byte-for-byte with no substitutions.
+- `mould use` also accepts a template **directory path** in place of a name — `mould use ./path/to/template ./output` — without any `template-sources.json`.
+- `--input key=value` splits at the first `=`, so values may contain `=`; `--input key=` supplies an empty value.
+
+### Use `mould` from JavaScript
+
+`@jalexw/mould` exports a programmatic API for other CLIs. It addresses the template by path, never prompts, and rejects with a `MouldError` subclass instead of exiting the process:
+```ts
+import { applyTemplate, MouldError } from "@jalexw/mould";
+
+try {
+  const result = await applyTemplate({
+    templatePath: new URL("../templates/my-template/", import.meta.url).pathname,
+    outputPath: "./my-project",
+    inputs: { project_name: "demo", with_docs: true },
+    onWarning: (message) => console.warn(message),
+  });
+  console.log(result.writtenFiles);   // output-relative paths
+  console.log(result.skippedFiles);   // pruned by conditionalPaths
+} catch (e) {
+  if (e instanceof MouldError) console.error(e.message);
+  else throw e;
+}
+```
+Also exported: `loadTemplateConfig(templatePath)`, `resolveInputs(...)`, the error classes (`TemplateNotFoundError`, `TemplateConfigError`, `OutputPathExistsError`, `OutputParentMissingError`, `MissingRequiredInputError`, `InvalidInputValueError`, `ConditionSyntaxError`, `RenameConflictError`) and the config types.
 
 ### Load the configured list of template sources files
 ```bash

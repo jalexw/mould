@@ -1,0 +1,7 @@
+Project: xxx_slug_xxx
+# mould:if with_docs
+Docs are included.
+# mould:else
+Docs are not included.
+# mould:endif
+This text mentions mould:if in prose and must survive untouched.
