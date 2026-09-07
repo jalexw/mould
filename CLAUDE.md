@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commands
 
-Bun is the package manager and test runner (`bun@1.3.14`); the *published* CLI runs on plain Node (`engines.node >= 24`).
+Bun is the package manager and test runner (`bun@1.4.2`); the *published* CLI runs on plain Node (`engines.node >= 24`).
 
 ```bash
 bun install
